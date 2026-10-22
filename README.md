@@ -26,6 +26,10 @@ AirPods ANC, Adaptive Audio, Spatial Audio, Find My, and Apple account switching
 | Light | ![MomoBose Bose QC45 desktop controls in light mode](docs/screenshots/volume-light-main.png) | ![MomoBose Bose QC45 compact widget in light mode](docs/screenshots/volume-light-widget.png) |
 | Dark | ![MomoBose Bose QC45 desktop controls in dark mode](docs/screenshots/volume-dark-main.png) | ![MomoBose Bose QC45 compact widget in dark mode](docs/screenshots/volume-dark-widget.png) |
 
+### Check connected Bose devices
+
+Connect MomoBose to your QC45 and enable **Multipoint** in the full desktop window. Under **Other connected devices**, the app lists the other devices currently connected to the headphones. Select **Manage connections** to see all paired sources: connected devices are marked **Connected**, while saved pairings that are not active are marked **Paired · not connected**. The list shows how many of the QC45's two connection slots are in use.
+
 ## Get started
 
 ### Install a release
