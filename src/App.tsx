@@ -5,6 +5,7 @@ import { createDemoAPI } from './shared/demo';
 import { supportedDevice } from './shared/models';
 import { productForDevice } from './shared/products';
 import { SonyAmbient, SonyEqualizer, SonyFeatures } from './SonyControls';
+import { UpdateStatus, useUpdates } from './UpdateStatus';
 import './style.css';
 
 declare global { interface Window { momoBose?: DesktopAPI } }
@@ -150,6 +151,7 @@ export default function App() {
   const [selected, setSelected] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [preferences, showPreferences] = useState(false);
+  const updateState = useUpdates(api?.updates);
   const [diagnostics, showDiagnostics] = useState(false);
   const [sourceManager, showSources] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
@@ -226,11 +228,12 @@ export default function App() {
       </div>
     </main>
     {!preferences && !diagnostics && !sourceManager && feedback}
+    {!preferences && <UpdateStatus state={updateState} api={api?.updates}/>}
     <footer className="app-footer"><span className="firmware-label">{state.demo ? 'Demo preview' : `MomoBose ${state.version}`}<span className="footer-separator">·</span>{state.settings.firmware && connected ? `Firmware ${state.settings.firmware.split('-')[0]}` : 'Desktop audio companion'}</span><div>{isWidget ? <button className="text-button" onClick={() => void run({ type: 'showWindow' })}>All controls <ExternalLink size={13}/></button> : <><button className="text-button" disabled={working || !device} onClick={() => void run({ type: 'refresh' })}><RefreshCw size={13} className={working ? 'spin' : ''}/>Refresh</button><button className="text-button" aria-haspopup="dialog" aria-expanded={diagnostics} onClick={() => showDiagnostics(true)}>Connection details <ChevronDown size={13}/></button></>}</div></footer>
     {sourceManager && <Modal title="Connections" onClose={() => showSources(false)}>{feedback}<SourcesContent state={state} onCommand={run}/></Modal>}
     {preferences && <Modal title="Preferences" onClose={() => showPreferences(false)}>{feedback}<div className="preferences-panel"><div className="appearance-setting"><strong>Appearance</strong><div className="appearance-picker" role="group" aria-label="Appearance">{(['system', 'light', 'dark'] as const).map(value => <button key={value} disabled={working} aria-pressed={state.preferences.appearance === value} onClick={() => void run({ type: 'preferences', value: { appearance: value } })}>{value === 'system' ? 'System' : value === 'light' ? 'Light' : 'Dark'}</button>)}</div><p>System follows your computer’s appearance.</p></div>{([
       ['autoReconnect', 'Reconnect automatically', 'Try again after sleep or a lost connection.'], ['launchAtLogin', 'Open at login', 'Keep MomoBose ready in your menu bar or tray.'], ['showBatteryInTray', 'Battery in the menu bar', 'Show battery percentage beside the menu bar icon.'],
-    ] as const).filter(([key]) => key !== 'showBatteryInTray' || state.platform === 'darwin').map(([key, title, caption]) => <div className="preference-row" key={key}><div><strong>{title}</strong><p>{caption}</p></div><Toggle label={title} disabled={working} checked={state.preferences[key]} onChange={value => void run({ type: 'preferences', value: { [key]: value } })}/></div>)}<div className="modal-actions"><button className="text-button" onClick={() => void run({ type: 'openSettings', page: 'permissions' })}>Bluetooth permissions <ExternalLink size={13}/></button><button className="text-button quit-button" onClick={() => void run({ type: 'quit' })}>Quit MomoBose</button></div></div></Modal>}
+    ] as const).filter(([key]) => key !== 'showBatteryInTray' || state.platform === 'darwin').map(([key, title, caption]) => <div className="preference-row" key={key}><div><strong>{title}</strong><p>{caption}</p></div><Toggle label={title} disabled={working} checked={state.preferences[key]} onChange={value => void run({ type: 'preferences', value: { [key]: value } })}/></div>)}<UpdateStatus state={updateState} api={api?.updates} expanded/><div className="modal-actions"><button className="text-button" onClick={() => void run({ type: 'openSettings', page: 'permissions' })}>Bluetooth permissions <ExternalLink size={13}/></button><button className="text-button quit-button" onClick={() => void run({ type: 'quit' })}>Quit MomoBose</button></div></div></Modal>}
     {diagnostics && !isWidget && <Modal title="Connection details" onClose={() => showDiagnostics(false)}>{feedback}<section className="diagnostics"><div className="diagnostic-status"><span>Controls<strong>{connected ? 'Connected' : 'Disconnected'}</strong></span><span>Audio<strong>{state.audio.available ? 'Available' : 'Unavailable'}</strong></span><span>Default output<strong>{state.audio.isDefault ? state.audio.name ?? product.shortName : 'Other / unavailable'}</strong></span></div>{device && <p className="device-address">Bluetooth address <code>{device.address}</code></p>}<p>{airpods ? 'Take your AirPods out of the case and check their connection in Bluetooth settings.' : sony ? 'If connecting fails, turn your headphones on, close Sony Sound Connect on your phone, and check whether two other devices are connected.' : 'If connecting fails, turn your QC45 on, close the Bose app, and check whether two other devices are connected.'}</p><button className="text-button" onClick={() => void run({ type: 'openSettings', page: 'permissions' })}>Check Bluetooth permissions <ExternalLink size={13}/></button><h3>Recent activity</h3>{state.logs.length ? <ol>{state.logs.map((log, i) => <li key={`${log.time}-${i}`} className={log.level === 'error' ? 'log-error' : ''}><time>{new Date(log.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time><span>{log.message}</span></li>)}</ol> : <p>No connection activity yet.</p>}</section></Modal>}
   </div>;
 }

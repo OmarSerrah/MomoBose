@@ -1,3 +1,27 @@
+# MomoBose 0.1.13 app updates
+
+Checked on 2026-10-22 on Apple Silicon macOS.
+
+- All 199 Vitest tests passed, along with type checking, the production build,
+  the macOS native helper build, and the .NET Windows identity/endpoint checks.
+  Updater tests cover architecture feeds, startup/periodic checks, concurrent
+  checks, failed downloads/installer launches, explicit installation, manual
+  fallback, cleanup, IPC sender validation, and UI actions.
+- macOS ARM64 DMG/ZIP and Windows x64 NSIS/ZIP cross-packaging succeeded.
+  Generated feed URLs, artifact sizes, SHA-512 checksums, and blockmaps were
+  checked against real artifacts. A final macOS app bundle passed deep strict
+  ad-hoc signature verification and an isolated Electron smoke run: its packaged
+  updater dependency loaded, the desktop/preload and widget worked, close-to-tray
+  retained the app, and reopening restored the Dock. Smoke/demo update checks
+  remained disabled.
+- Browser fixtures verified download progress, explicit restart and manual
+  download actions, Preferences placement, and absence of horizontal overflow.
+  Those update readings were simulated and did not download or install software.
+- macOS uses manual installation as requested; no Apple Developer signing
+  credentials are configured. Windows ZIP copies also use manual installation.
+  Windows replacement/restart between two installed releases remains unverified
+  on physical Windows hardware. See [the updater checklist](docs/updates.md).
+
 # Sony WH-1000XM4/XM5 implementation
 
 Checked on 2026-10-22 on Apple Silicon macOS. Sony support is experimental:

@@ -51,7 +51,7 @@ afterEach(() => { process.argv = originalArgv; vi.useRealTimers(); vi.restoreAll
 it.each([false, true])('closes to the tray, restores the Dock on reopen, and quits cleanly (hidden startup: %s)', async hidden => {
   vi.resetModules(); vi.clearAllMocks();
   process.argv = [...originalArgv.filter(arg => arg !== '--hidden'), ...(hidden ? ['--hidden'] : [])];
-  const { app, nativeTheme, Menu, powerMonitor } = await import('electron');
+  const { app, nativeTheme, Menu, powerMonitor, ipcMain } = await import('electron');
   await app.dock!.show(); vi.clearAllMocks();
   app.removeAllListeners(); nativeTheme.removeAllListeners(); powerMonitor.removeAllListeners();
   (nativeTheme as any).shouldUseDarkColors = false;
@@ -59,6 +59,11 @@ it.each([false, true])('closes to the tray, restores the Dock on reopen, and qui
   await import('../electron/main');
   await vi.waitFor(() => expect(runtime.startup).toBeTypeOf('function'));
   const main = runtime.window;
+  const updateHandler = (channel: string) => vi.mocked(ipcMain.handle).mock.calls.find(([name]) => name === `momobose:updates:${channel}`)![1];
+  const sender = { sender: main.webContents, senderFrame: main.webContents.mainFrame } as any;
+  expect(updateHandler('snapshot')(sender)).toMatchObject({ mode: 'disabled' });
+  expect(() => updateHandler('snapshot')({ sender: {} } as any)).toThrow('Unknown MomoBose window');
+  expect(() => updateHandler('install')(sender)).toThrow('Download an update before installing it.');
   main.emit('ready-to-show');
   expect(main.isVisible()).toBe(!hidden);
   if (process.platform === 'darwin' && hidden) expect(app.dock!.hide).toHaveBeenCalledOnce();

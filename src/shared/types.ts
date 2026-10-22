@@ -90,9 +90,24 @@ export type Command =
   | { type: 'dismissError' }
   | { type: 'quit' };
 export interface DesktopAPI {
+  updates?: UpdateAPI;
   snapshot(): Promise<AppState>;
   command(command: Command): Promise<{ ok: boolean; error?: string }>;
   subscribe(callback: (state: AppState) => void): () => void;
+}
+export interface UpdateState {
+  mode: 'automatic' | 'manual' | 'disabled';
+  status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
+  version: string | null;
+  percent: number | null;
+  message: string | null;
+}
+export interface UpdateAPI {
+  snapshot(): Promise<UpdateState>;
+  check(): Promise<void>;
+  install(): Promise<void>;
+  openRelease(): Promise<void>;
+  subscribe(callback: (state: UpdateState) => void): () => void;
 }
 export const emptySettings = (): HeadsetSettings => ({ battery: null, firmware: null, mode: null, eq: null, multipoint: null, sidetone: null });
 export const defaultPreferences: Preferences = { appearance: 'system', autoReconnect: false, launchAtLogin: false, showBatteryInTray: true, selectedAddress: null };

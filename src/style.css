@@ -164,6 +164,15 @@ select { font-size: 12px; color: var(--text); min-height: 26px; border: 1px soli
 .preference-row p { font-size: 11px; color: var(--muted); margin-top: var(--space-1); }
 .modal-actions { padding-top: var(--space-5); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .quit-button { color: var(--danger); }
+.update-status { display: flex; align-items: center; gap: 16px; }
+.update-status > div { flex: 1; min-width: 0; }
+.update-status strong { font-size: 12px; }
+.update-status p { margin: 4px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.update-status > button { flex-shrink: 0; }
+.update-status progress { width: 80px; accent-color: var(--accent); }
+.update-banner { padding: 12px 20px; border-top: 1px solid var(--line); background: var(--toolbar); flex-shrink: 0; flex-wrap: wrap; }
+.update-preference { padding-block: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.widget .update-banner { gap: 8px; padding: 10px 16px; }
 .modal-body > .message-strip { margin-bottom: var(--space-4); padding: var(--space-3); border: 1px solid var(--line); border-radius: 8px; }
 .diagnostics { font-size: 12px; color: var(--muted); }
 .diagnostic-status { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: var(--space-3); border-bottom: 1px solid var(--separator); padding-bottom: var(--space-4); }

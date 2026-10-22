@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Controller } from './controller';
 import { Qc45 } from './bmap';
 import { NativeBridge } from './native';
+import { UpdateManager } from './updates';
 import { createDemoAPI } from '../src/shared/demo';
 import { modelForDevice } from '../src/shared/models';
 import { ListeningMode, defaultPreferences, type AppState, type Command, type Preferences } from '../src/shared/types';
@@ -13,6 +14,7 @@ const single = app.requestSingleInstanceLock();
 if (!single) app.quit();
 let main: BrowserWindow | null = null, widget: BrowserWindow | null = null, tray: Tray;
 let quitting = false;
+let updates: UpdateManager | undefined;
 let dockHideTimer: ReturnType<typeof setTimeout> | undefined;
 let lastDockChange = -Infinity;
 let controller: Controller | undefined;
@@ -159,8 +161,32 @@ function contextMenu() {
     ] : [{ label: 'Headphone settings…', click: () => { void command({ type: 'openSettings', page: 'airpods' }); } }]),
     { type: 'separator' },
     { label: 'Open MomoBose', click: showMain },
+    updateMenuItem(),
     { label: 'Quit MomoBose', click: () => { quitting = true; app.quit(); } },
   ]);
+}
+function updateMenuItem(): Electron.MenuItemConstructorOptions {
+  const state = updates?.state;
+  return {
+    label: state?.status === 'downloaded' ? 'Restart to Update…' : state?.status === 'available' ? 'Download Update…' : state?.status === 'downloading' ? `Downloading Update… ${state.percent ?? 0}%` : state?.status === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
+    enabled: Boolean(state && state.mode !== 'disabled' && !['checking', 'downloading'].includes(state.status)),
+    click: () => {
+      showMain();
+      if (updates?.state.status === 'downloaded') {
+        try { updates.install(); } catch { /* The updater publishes the failure to the window. */ }
+      }
+      else if (updates?.state.status === 'available') void updates.openRelease().catch(() => {});
+      else void updates?.check();
+    },
+  };
+}
+function refreshApplicationMenu() {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(process.platform === 'darwin' ? [{ label: 'MomoBose', submenu: [{ role: 'about' as const }, updateMenuItem(), { type: 'separator' as const }, { role: 'hide' as const }, { role: 'hideOthers' as const }, { type: 'separator' as const }, { label: 'Quit MomoBose', accelerator: 'Cmd+Q', click: () => { quitting = true; app.quit(); } }] }] : []),
+    { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'selectAll' }] },
+    { label: 'Window', submenu: [{ label: 'Show MomoBose', click: showMain }, { role: 'minimize' }, { id: 'close-window', role: 'close', accelerator: 'CmdOrCtrl+W' }] },
+    ...(process.platform === 'darwin' ? [] : [{ label: 'Help', submenu: [updateMenuItem()] }]),
+  ]));
 }
 function update(state: AppState) {
   current = state;
@@ -179,6 +205,7 @@ app.on('activate', showMain);
 app.on('window-all-closed', () => { /* Keep the menu bar / tray control running. */ });
 app.on('before-quit', () => {
   quitting = true;
+  updates?.stop();
   clearTimeout(dockHideTimer);
   nativeTheme.off('updated', updateApplicationIcon);
   controller?.off('state', update);
@@ -199,16 +226,32 @@ if (single) void app.whenReady().then(async () => {
   tray.on('click', toggleWidget); tray.on('right-click', () => tray.popUpContextMenu(contextMenu()));
   ipcMain.handle('momobose:snapshot', event => { allowedSender(event); return current; });
   ipcMain.handle('momobose:command', (event, action) => { allowedSender(event); return command(action); });
+  // Do not contact GitHub during development, demo sessions, or smoke tests.
+  const updater = app.isPackaged && !demo && !process.argv.includes('--smoke-test') && ['win32', 'darwin'].includes(process.platform)
+    ? (await import('electron-updater')).default.autoUpdater : null;
+  updates = new UpdateManager(updater, {
+    platform: process.platform, arch: process.arch,
+    installed: process.platform === 'win32' && existsSync(path.join(path.dirname(app.getPath('exe')), 'Uninstall MomoBose.exe')),
+    publish: state => {
+      if (quitting) return;
+      for (const window of windows()) if (!window.webContents.isDestroyed()) window.webContents.send('momobose:updates:state', state);
+      refreshApplicationMenu();
+    },
+    beforeInstall: () => { quitting = true; clearTimeout(dockHideTimer); },
+    installFailed: () => { quitting = false; showMain(); },
+    openRelease: url => shell.openExternal(url),
+  });
+  ipcMain.handle('momobose:updates:snapshot', event => { allowedSender(event); return updates!.state; });
+  ipcMain.handle('momobose:updates:check', event => { allowedSender(event); void updates!.check(); });
+  ipcMain.handle('momobose:updates:install', event => { allowedSender(event); updates!.install(); });
+  ipcMain.handle('momobose:updates:open-release', event => { allowedSender(event); return updates!.openRelease(); });
   nativeTheme.on('updated', updateApplicationIcon);
   nativeTheme.themeSource = current.preferences.appearance;
   main = createWindow();
   if (process.argv.includes('--hidden')) hideDock();
   main.once('ready-to-show', () => { if (!process.argv.includes('--hidden')) showMain(); });
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(process.platform === 'darwin' ? [{ label: 'MomoBose', submenu: [{ role: 'about' as const }, { type: 'separator' as const }, { role: 'hide' as const }, { role: 'hideOthers' as const }, { type: 'separator' as const }, { label: 'Quit MomoBose', accelerator: 'Cmd+Q', click: () => { quitting = true; app.quit(); } }] }] : []),
-    { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'selectAll' }] },
-    { label: 'Window', submenu: [{ label: 'Show MomoBose', click: showMain }, { role: 'minimize' }, { id: 'close-window', role: 'close', accelerator: 'CmdOrCtrl+W' }] },
-  ]));
+  refreshApplicationMenu();
+  updates.start();
   powerMonitor.on('suspend', () => { void controller?.suspend(); }); powerMonitor.on('resume', () => controller?.resume());
   update(current);
   // Smoke checks must not inherit a user's automatic reconnect preference.
@@ -227,6 +270,7 @@ if (single) void app.whenReady().then(async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
     const report: Record<string, unknown> = {
       state: current, trayCreated: !tray.isDestroyed(),
+      updates: { state: updates.state, dependencyAvailable: typeof (await import('electron-updater')).default.autoUpdater.checkForUpdates === 'function' },
       renderer: await main!.webContents.executeJavaScript('({ title: document.title, text: document.body.innerText, nodeExposed: typeof window.require !== "undefined", bridgeAvailable: typeof window.momoBose?.command === "function" })'),
     };
     if (process.argv.includes('--read-qc45') && bridge && !demo) {
