@@ -30,6 +30,8 @@ AirPods ANC, Adaptive Audio, Spatial Audio, Find My, and Apple account switching
 
 Connect MomoBose to your QC45 and enable **Multipoint** in the full desktop window. Under **Other connected devices**, the app lists the other devices currently connected to the headphones. Select **Manage connections** to see all paired sources: connected devices are marked **Connected**, while saved pairings that are not active are marked **Paired · not connected**. The list shows how many of the QC45's two connection slots are in use.
 
+![Demo screenshot showing a Bose QC45 and a connected iPhone in the Multipoint section](docs/screenshots/multipoint-connected-devices.png)
+
 ## Get started
 
 ### Install a release
