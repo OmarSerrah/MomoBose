@@ -1,0 +1,92 @@
+{
+  "name": "momobose",
+  "productName": "MomoBose",
+  "version": "0.1.10",
+  "private": true,
+  "type": "module",
+  "description": "A quieter way to connect. Bose QC45 controls for your desktop.",
+  "author": "Momo",
+  "license": "MIT",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:ui": "vite --host 127.0.0.1",
+    "build": "npm run typecheck && vite build && node scripts/build-electron.mjs",
+    "build:native": "node scripts/build-native.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node scripts/start.mjs",
+    "demo": "node scripts/start.mjs --demo",
+    "package:mac": "npm run build:native && npm run build && electron-builder --mac --dir",
+    "dist:mac": "npm run build:native && npm run build && electron-builder --mac dmg zip",
+    "dist:win": "npm run build:native && npm run build && electron-builder --win nsis zip"
+  },
+  "build": {
+    "appId": "com.momo.momobose",
+    "productName": "MomoBose",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "assets/**",
+      "package.json",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "extraResources": [
+      {
+        "from": "native/bin/${os}-${arch}",
+        "to": "native",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "identity": "-",
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.icns",
+      "hardenedRuntime": true,
+      "entitlements": "native/macos/entitlements.plist",
+      "extendInfo": {
+        "NSBluetoothAlwaysUsageDescription": "MomoBose connects to your Bose headphones to show battery and change your sound settings.",
+        "NSBluetoothPeripheralUsageDescription": "MomoBose connects to your Bose headphones.",
+        "LSMinimumSystemVersion": "12.0"
+      }
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
+    "sharp": "^0.35.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
+  }
+}

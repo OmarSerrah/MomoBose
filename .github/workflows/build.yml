@@ -1,0 +1,50 @@
+name: Build MomoBose
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck && npm test && npm run build
+  package:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15, platform: mac, arch: arm64 }
+          - { runner: macos-15, platform: mac, arch: x64 }
+          - { runner: windows-latest, platform: win, arch: x64 }
+          - { runner: windows-latest, platform: win, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    env:
+      MOMOBOSE_TARGET_ARCH: ${{ matrix.arch }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-dotnet@v4
+        if: matrix.platform == 'win'
+        with: { dotnet-version: '8.0.x' }
+      - run: npm ci
+      - run: npm run build:native
+      - run: npm run build
+      - run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MomoBose-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.blockmap
+          if-no-files-found: error

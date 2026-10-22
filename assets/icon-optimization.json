@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "correction": "Remove the opaque outer white canvas from both app icons; preserve original artwork RGB pixels.",
+  "mask": {
+    "method": "Built-in imagegen background-extraction alpha; threshold 128, median 11, dilate black exterior by 5px, blur 0.6 for antialiasing. Original RGB artwork retained without resampling.",
+    "generatedSource": "/Users/momo/.codex/generated_images/01a162a4-e7c1-7652-8603-373c3cad9189/exec-04c8a55f-c8a1-41ba-ad62-cd520b7ac237.png",
+    "prompt": "Remove only the exterior white canvas/shadow; preserve the entire opaque rounded-square tile and headphone artwork, with transparent exterior and no white fringe."
+  },
+  "masters": {
+    "light": {
+      "sourceAttachment": "24db5ac9-1af3-45c1-a0cc-e39d1deab12a-6dbfe309-811b-418a-ad8f-0611b2771ea5.png",
+      "output": "assets/app-icon-light.png",
+      "width": 1254,
+      "height": 1254,
+      "channels": 4,
+      "hasAlpha": true,
+      "bytes": 1360083,
+      "sha256": "c591d6425bde8b71ef33da6330c2928eabdeeb6786221f055ff86f3f0e0236fd",
+      "originalRgbPixelsPreserved": true,
+      "transparentPixels": 528010,
+      "opaquePixels": 1036170,
+      "originalLosslessCompression": {
+        "sourceAttachment": "24db5ac9-1af3-45c1-a0cc-e39d1deab12a-6dbfe309-811b-418a-ad8f-0611b2771ea5.png",
+        "output": "assets/app-icon-light.png",
+        "width": 1254,
+        "height": 1254,
+        "channels": 3,
+        "bitDepth": 8,
+        "colorType": "RGB",
+        "sourceBytes": 1560994,
+        "optimizedBytes": 1153720,
+        "savedBytes": 407274,
+        "savedPercent": 26.09,
+        "sourceSha256": "f4c84cfbb3c0a695aeef570636b16b6c538bbd459eda276e9878405f1aad9e02",
+        "optimizedSha256": "85f3665fa0d6015b373260edf4ee297da64d71d9981b0b29557c1043633dccab",
+        "decodedSourceSha256": "708ac215f08862fd777af187871c5d7870f95addc523ee2515336e780d858824",
+        "decodedOptimizedSha256": "708ac215f08862fd777af187871c5d7870f95addc523ee2515336e780d858824",
+        "decodedBytes": 4717548,
+        "decodedPixelsIdentical": true,
+        "trialsBytes": {
+          "sharpCompression9Nonadaptive": 1440862,
+          "sharpCompression9Adaptive": 1219212,
+          "sharpAdaptiveThenZopfli": 1153720
+        }
+      },
+      "ico": {
+        "bytes": 79400,
+        "sha256": "e1bc4634c0a1bbc2100df9cc388902296d98c058143779bb209d79dbf4a1b1b1"
+      },
+      "icns": {
+        "bytes": 1609823,
+        "sha256": "959ac5cc88791139607114fe35ad67dccc21365449da44d653d58b76c89eb536"
+      }
+    },
+    "dark": {
+      "sourceAttachment": "24db5ac9-1af3-45c1-a0cc-e39d1deab12a-93871557-1362-4f38-b486-e5698618ab26.png",
+      "output": "assets/app-icon-dark.png",
+      "width": 1254,
+      "height": 1254,
+      "channels": 4,
+      "hasAlpha": true,
+      "bytes": 1484519,
+      "sha256": "6511dc264929de2215430b6d950b71b3ea368f89cb49e98838f1213b35906752",
+      "originalRgbPixelsPreserved": true,
+      "transparentPixels": 528010,
+      "opaquePixels": 1036170,
+      "originalLosslessCompression": {
+        "sourceAttachment": "24db5ac9-1af3-45c1-a0cc-e39d1deab12a-93871557-1362-4f38-b486-e5698618ab26.png",
+        "output": "assets/app-icon-dark.png",
+        "width": 1254,
+        "height": 1254,
+        "channels": 3,
+        "bitDepth": 8,
+        "colorType": "RGB",
+        "sourceBytes": 1666220,
+        "optimizedBytes": 1258534,
+        "savedBytes": 407686,
+        "savedPercent": 24.47,
+        "sourceSha256": "dd6804cc6b65e931b76217682f8da9952129238e85431e8287180c23e9ede885",
+        "optimizedSha256": "d0b696b070c1718b5efcbbdf53b18ecb2b71461a08de275951ad8ad05955c2b6",
+        "decodedSourceSha256": "e5010976597d1603424edbd576028a949476554074b284dff2a5752637e8631f",
+        "decodedOptimizedSha256": "e5010976597d1603424edbd576028a949476554074b284dff2a5752637e8631f",
+        "decodedBytes": 4717548,
+        "decodedPixelsIdentical": true,
+        "trialsBytes": {
+          "sharpCompression9Nonadaptive": 1579783,
+          "sharpCompression9Adaptive": 1326424,
+          "sharpAdaptiveThenZopfli": 1258534
+        }
+      },
+      "ico": {
+        "bytes": 75976,
+        "sha256": "eaca14e809b38f3701e829e09e3c73287a00278343a26a5011595fcb9622ef30"
+      },
+      "icns": {
+        "bytes": 1616035,
+        "sha256": "7f70b893562311062288cd09675a87b8fb3ad6d19d62d123350623b462f7d7a4"
+      }
+    }
+  },
+  "preservedTraySha256": {
+    "tray.png": "fc42144fe43160f059504ccb5b2a37f30ac8d43164b4690da78a59b3bec9c079",
+    "trayTemplate.png": "67356a84f495e48ec1cddbe46d7cb78daf28c4d25ee0e5cc27961ec6745778a5",
+    "trayTemplate@2x.png": "beaf587a5604f52083b9f013982d7717a12b900df2d54edd4edf984d2eb38c83"
+  },
+  "validated": {
+    "originalArtworkRgbPreserved": true,
+    "outerMarginsFullyTransparent": true,
+    "allIcnsRepresentationsHaveTransparentCorners": true,
+    "trayFilesUnchanged": true
+  }
+}

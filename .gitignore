@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+release/
+release-*/
+native/bin/
+native/windows/bin/
+native/windows/obj/
+.DS_Store
+*.log
