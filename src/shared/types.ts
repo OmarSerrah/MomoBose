@@ -96,7 +96,7 @@ export interface DesktopAPI {
   subscribe(callback: (state: AppState) => void): () => void;
 }
 export interface UpdateState {
-  mode: 'automatic' | 'manual' | 'disabled';
+  mode: 'automatic' | 'manual' | 'sparkle' | 'disabled';
   status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
   version: string | null;
   percent: number | null;

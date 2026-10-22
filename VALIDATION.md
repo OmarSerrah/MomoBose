@@ -1,4 +1,55 @@
-# MomoBose 0.1.13 app updates
+# Sparkle security fixes (unreleased)
+
+Checked on 2026-10-22 on Apple silicon macOS. These changes retain free ad-hoc
+signing and require no Apple Developer certificate or notarization.
+
+- All 215 Vitest tests pass, along with type checking and the production build.
+  The feed tests use real Ed25519 keys and cover modified signed bytes, same-size
+  archive tampering, wrong keys, malformed XML, duplicate attributes, namespace
+  substitutions, exact URLs/versions/lengths, hardware metadata and item ordering.
+  Mac-only tests run the official signer with a disposable key over stdin.
+- `npm audit` reports zero vulnerabilities. All 396 audited packages have
+  verified registry signatures; 97 have verified attestations. The exact
+  `electron-sparkle` version and its upstream Sparkle archive provenance were
+  checked; `global-agent` 4.1.3 replaces its vulnerable older dependency chain.
+- Both Intel and ARM Mac apps passed strict deep `codesign` verification and
+  Sparkle's doctor check. Both architectures produced DMG/ZIP archives using
+  ad-hoc signatures with Hardened Runtime enabled. Packaging checks executable,
+  helper and bridge architecture; bundle versions; and embedded feed/key flags.
+  Signing and archiving outside Desktop resolves the Finder metadata failure.
+  Both release ZIPs also passed strict signature verification after extraction.
+- The actual electron-builder ZIPs were signed locally using the existing
+  Keychain key. Their appcast and archive signatures verify against the public
+  key embedded in MomoBose. The appcast also passed the official Sparkle
+  `sign_update --verify` check. No release was published. `generate_appcast`
+  rejected equal-version architecture archives, so the release script now uses
+  Sparkle's documented manual appcast and `sign_update` flow, ARM item first.
+- Disposable Electron app fixtures with separate bundle identifiers initialized
+  the native Sparkle bridge on ARM and x64 under Rosetta. These fixtures used
+  isolated local feeds and disabled automatic checks; they did not change the
+  installed MomoBose app or preferences. The ARM native updater accepted the
+  signed feed, selected the ARM ZIP, and rejected a modified feed. The x64
+  updater under Rosetta also accepted the valid feed, selected native ARM
+  for this Apple silicon Mac, and rejected the modified feed. Its first feed-check launch exceeded the initial
+  30-second fixture timeout; a follow-up check completed successfully.
+- GitHub API checks confirmed the protected `release` environment, required
+  owner approval, tag-only deployment policy and environment-scoped signing key.
+  Its repository-scoped secret copy was removed. Active rulesets make `v*` tags
+  immutable and restrict their creation to administrators. Actions are pinned,
+  signing and publication are separate, and only publication has contents write.
+- Independent delegated reviews found no remaining concrete security issue in
+  the revised signing, packaging, runtime and release workflow code.
+
+A real two-version update that replaces and relaunches MomoBose remains
+unverified on physical Intel and Apple silicon Macs. Local packaging, signature
+checks and tests do not establish that result. The revised GitHub workflow has
+not been run remotely. macOS approval prompts remain possible for ad-hoc builds;
+existing users must install the first Sparkle-enabled release manually. See
+[the hardware checklist](docs/updates.md) and [release security](docs/security-release.md).
+
+The following sections record earlier validation snapshots.
+
+# MomoBose 0.1.13 app updates (before Sparkle)
 
 Checked on 2026-10-22 on Apple Silicon macOS.
 
@@ -415,7 +466,7 @@ The Windows helper compiles, but Windows Bluetooth/audio behavior and the Window
 
 ## Development distribution
 
-The Mac artifact is locally ad-hoc signed and not notarized. Windows artifacts are unsigned development builds. Public distribution requires developer signing credentials and platform testing. The cross-built Windows executable keeps Electron's embedded executable metadata/icon; the app window, tray and installer use MomoBose branding. Building on Windows normally enables executable resource editing.
+The Mac artifact is locally ad-hoc signed and not notarized. Windows artifacts are unsigned development builds. Platform testing remains required before claiming installation and self-updates verified on hardware; paid Apple signing is optional for this release approach. The cross-built Windows executable keeps Electron's embedded executable metadata/icon; the app window, tray and installer use MomoBose branding. Building on Windows normally enables executable resource editing.
 
 After moving the project under Desktop, File Provider attached FinderInfo metadata to generated Mach-O files and prevented signing, including after an attribute-cleanup hook. Version 0.1.4 is staged outside Desktop; its installer archives stay in the project. The unpacked signed Mac build is referenced from outside File Provider storage.
 

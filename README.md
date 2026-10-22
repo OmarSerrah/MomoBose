@@ -52,10 +52,12 @@ tray menu, or **Preferences → App updates**.
 - **Windows installer:** updates download in the background. Choose **Restart to
   Update** when ready; the installer replaces MomoBose and reopens it. Closing
   the window or quitting normally does not install an update.
-- **macOS and Windows ZIP:** when a newer release is available, choose **Download
-  Update** to open its download page, then install it manually. macOS releases
-  currently use ad-hoc signing; automatic replacement requires Developer ID
-  signing and is not enabled.
+- **macOS:** Sparkle checks for updates and presents its native download and
+  install flow. **Download Manually** remains available from GitHub Releases.
+  App bundles remain ad-hoc signed, so macOS may show approval prompts and the
+  first Sparkle-enabled release must be installed manually by existing users.
+- **Windows ZIP:** when a newer release is available, choose **Download Update**
+  to open its download page, then install it manually.
 
 Preferences stay on your computer across updates. Update checks contact GitHub
 for public release metadata and do not send headphone details. Development,

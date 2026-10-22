@@ -1,21 +1,33 @@
 name: Build MomoBose
+
 on:
   workflow_dispatch:
   push:
     tags: ['v*']
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with: { dotnet-version: '8.0.x' }
       - run: npm ci
       - run: npm run typecheck && npm test && npm run build
       - run: dotnet run --project tests/windows/WindowsTests.csproj --configuration Release
+
   package:
     needs: test
     strategy:
@@ -32,10 +44,12 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 22, cache: npm }
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         if: matrix.platform == 'win'
         with: { dotnet-version: '8.0.x' }
       - run: npm ci
@@ -43,8 +57,12 @@ jobs:
       - if: matrix.platform == 'win'
         run: dotnet run --project tests/windows/WindowsTests.csproj --configuration Release
       - run: npm run build
-      - run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
-      - uses: actions/upload-artifact@v4
+      - name: Package and verify ad-hoc signed macOS archives
+        if: matrix.platform == 'mac'
+        run: node scripts/package-mac.mjs --${{ matrix.arch }}
+      - if: matrix.platform == 'win'
+        run: npx electron-builder --win --${{ matrix.arch }} --publish never
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: MomoBose-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
@@ -54,30 +72,96 @@ jobs:
             release/latest-*.yml
             release/*.blockmap
           if-no-files-found: error
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+
+  validate-release-tag:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a version tag on main history
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Public release tag must be a stable semantic version: $TAG" >&2
+            exit 1
+          }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || {
+            echo "Release tag $TAG does not point to a commit reachable from main" >&2
+            exit 1
+          }
+
+  sign-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [package, validate-release-tag]
+    runs-on: macos-15
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 22, cache: npm }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+      - run: npm ci
+      - name: Validate updater manifests and prepare release assets
+        run: node scripts/prepare-release.mjs
+      - name: Sign and prepare Sparkle appcast
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: node scripts/prepare-sparkle-feed.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: MomoBose-release-assets
+          path: release-assets/
+          if-no-files-found: error
+
+  publish-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: sign-release
+    runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
     permissions:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          path: artifacts
-      - name: Validate updater manifests and prepare release assets
-        run: node scripts/prepare-release.mjs
-      - uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          draft: true
-          generate_release_notes: true
-          files: release-assets/*
+          name: MomoBose-release-assets
+          path: release-assets
+      - name: Create or safely update the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if draft_state=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            [[ "$draft_state" == true ]] || {
+              echo "Refusing to overwrite an already published release: $TAG" >&2
+              exit 1
+            }
+          else
+            gh release create "$TAG" --verify-tag --draft --generate-notes --title "$TAG"
+          fi
+          # Re-runs may replace only the same, versioned assets while the release remains a draft.
+          gh release upload "$TAG" release-assets/* --clobber
       - name: Publish the complete release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --draft=false --latest

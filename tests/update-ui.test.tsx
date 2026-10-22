@@ -23,12 +23,24 @@ it('checks from Preferences and shows progress before offering restart', () => {
   expect(updates.install).toHaveBeenCalledOnce();
 });
 
-it('opens the release download page for macOS and never offers automatic restart', () => {
+it('opens the release download page in manual mode and never offers automatic restart', () => {
   const updates = api();
   render(<UpdateStatus state={{ ...state, mode: 'manual', status: 'available', version: '0.1.14' }} api={updates}/>);
   fireEvent.click(screen.getByRole('button', { name: 'Download Update' }));
   expect(updates.openRelease).toHaveBeenCalledOnce();
   expect(screen.queryByRole('button', { name: 'Restart to Update' })).toBeNull();
+  expect(updates.install).not.toHaveBeenCalled();
+});
+
+it('keeps installation in the macOS software update window and offers a manual fallback', () => {
+  const updates = api();
+  const { rerender } = render(<UpdateStatus state={{ ...state, mode: 'sparkle', status: 'available', version: '0.1.14' }} api={updates}/>);
+  expect(screen.getByRole('status').textContent).toContain('software update window');
+  fireEvent.click(screen.getByRole('button', { name: 'Download Manually' }));
+  expect(updates.openRelease).toHaveBeenCalledOnce();
+  rerender(<UpdateStatus state={{ ...state, mode: 'sparkle', status: 'downloaded', version: '0.1.14' }} api={updates}/>);
+  expect(screen.queryByRole('button', { name: 'Restart to Update' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Download Manually' })).toBeDefined();
   expect(updates.install).not.toHaveBeenCalled();
 });
 
