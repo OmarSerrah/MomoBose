@@ -146,13 +146,15 @@ function toggleWidget() {
 }
 function contextMenu() {
   const connected = current.connection === 'connected', enabled = connected && !current.busy;
+  const family = modelForDevice(current.device).family;
   return Menu.buildFromTemplate([
     { label: `MomoBose · ${current.device?.name ?? 'QuietComfort 45'}`, enabled: false },
     { label: connected ? `Battery ${current.settings.battery ?? '—'}% · ${current.audio.isDefault ? 'Audio ready' : 'Check audio output'}` : current.audio.available ? 'Audio connected · controls offline' : 'Not connected', enabled: false },
     { type: 'separator' },
     { label: connected ? 'Disconnect' : 'Connect to this computer', enabled: !current.busy && Boolean(current.device), click: () => { void command(connected ? { type: 'disconnect' } : { type: 'connect', address: current.device!.address, confirmedQc45: true }); } },
-    ...(modelForDevice(current.device).family === 'bose' ? [{ label: 'Quiet', type: 'radio' as const, checked: current.settings.mode === ListeningMode.Quiet, enabled: enabled && current.settings.mode !== null, click: () => { void command({ type: 'mode', value: ListeningMode.Quiet }); } },
-    { label: 'Aware', type: 'radio' as const, checked: current.settings.mode === ListeningMode.Aware, enabled: enabled && current.settings.mode !== null, click: () => { void command({ type: 'mode', value: ListeningMode.Aware }); } },
+    ...(['bose', 'sony'].includes(family) ? [{ label: family === 'sony' ? 'Noise cancelling' : 'Quiet', type: 'radio' as const, checked: current.settings.mode === ListeningMode.Quiet, enabled: enabled && current.settings.mode !== null, click: () => { void command({ type: 'mode', value: ListeningMode.Quiet }); } },
+    { label: family === 'sony' ? 'Ambient sound' : 'Aware', type: 'radio' as const, checked: current.settings.mode === ListeningMode.Aware, enabled: enabled && current.settings.mode !== null, click: () => { void command({ type: 'mode', value: ListeningMode.Aware }); } },
+    ...(family === 'sony' ? [{ label: 'Noise control off', type: 'radio' as const, checked: current.settings.mode === ListeningMode.Off, enabled: enabled && current.settings.mode !== null, click: () => { void command({ type: 'mode', value: ListeningMode.Off }); } }] : []),
     { label: 'Multipoint', type: 'checkbox' as const, checked: current.settings.multipoint === true, enabled: enabled && current.settings.multipoint !== null, click: () => { void command({ type: 'multipoint', value: !current.settings.multipoint }); } },
     ] : [{ label: 'Headphone settings…', click: () => { void command({ type: 'openSettings', page: 'airpods' }); } }]),
     { type: 'separator' },

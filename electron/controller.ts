@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { Qc45, type Transport } from './bmap';
+import { SonyHeadset } from './sony';
 import { ListeningMode, defaultPreferences, emptyAudio, emptySettings, type AppState, type Command, type Headset, type Preferences } from '../src/shared/types';
 import { modelForDevice, supportedDevice } from '../src/shared/models';
 import { AirPodsMonitor } from './airpods';
@@ -7,7 +8,9 @@ import { APP_VERSION } from '../src/shared/version';
 
 export class Controller extends EventEmitter {
   state: AppState;
-  private headset: Qc45;
+  private headset: Qc45 | SonyHeadset;
+  private bose: Qc45;
+  private sony: SonyHeadset;
   private pollTimer?: NodeJS.Timeout;
   private modePollTimer?: NodeJS.Timeout;
   private audioPollTimer?: NodeJS.Timeout;
@@ -32,16 +35,18 @@ export class Controller extends EventEmitter {
       settings: emptySettings(), audio: emptyAudio(), preferences: { ...defaultPreferences, ...preferences },
       error: null, notice: null, logs: [], lastUpdated: null,
     };
-    this.headset = new Qc45(native);
-    this.headset.on('diagnostic', (message: string) => this.log(message));
-    this.headset.on('mode', (mode: number | null) => {
-      if (this.stopped || this.intentionalDisconnect || this.state.connection !== 'connected' || this.state.settings.mode === mode) return;
+    this.bose = new Qc45(native); this.sony = new SonyHeadset(native); this.headset = this.bose;
+    for (const headset of [this.bose, this.sony]) {
+    headset.on('diagnostic', (message: string) => { if (headset === this.headset) this.log(message); });
+    headset.on('mode', (mode: number | null) => {
+      if (headset !== this.headset || this.stopped || this.intentionalDisconnect || this.state.connection !== 'connected' || this.state.settings.mode === mode) return;
       this.state.settings.mode = mode;
       this.state.lastUpdated = new Date().toISOString();
       this.publish();
     });
-    this.headset.on('sourcesChanged', () => this.syncSources());
-    this.headset.on('lost', (error: Error) => {
+    headset.on('sourcesChanged', () => { if (headset === this.headset) this.syncSources(); });
+    headset.on('lost', (error: Error) => {
+      if (headset !== this.headset) return;
       this.audioGeneration++;
       const hadConnection = this.state.connection !== 'disconnected';
       this.state.connection = 'disconnected'; this.state.settings = emptySettings();
@@ -50,6 +55,11 @@ export class Controller extends EventEmitter {
         this.state.error = error.message; this.controlError = error.message; this.log(error.message, 'error'); this.scheduleRetry();
       }
       this.publish();
+    });
+    }
+    this.sony.on('settings', (settings: Partial<AppState['settings']>) => {
+      if (this.headset !== this.sony || this.stopped || this.intentionalDisconnect || this.state.connection !== 'connected' || this.state.busy) return;
+      this.state.settings = { ...this.state.settings, ...settings }; this.state.lastUpdated = new Date().toISOString(); this.publish();
     });
     native.on('diagnostic', (message: string) => this.log(message, 'error'));
   }
@@ -74,7 +84,7 @@ export class Controller extends EventEmitter {
     this.modePollTimer = setInterval(() => this.syncMode(), 1000);
   }
   private syncMode() {
-    if (this.stopped || this.intentionalDisconnect || this.state.busy || this.modeSync || this.sourceSync || this.state.connection !== 'connected' || modelForDevice(this.state.device).family !== 'bose') return;
+    if (this.stopped || this.intentionalDisconnect || this.state.busy || this.modeSync || this.sourceSync || this.state.connection !== 'connected' || !['bose', 'sony'].includes(modelForDevice(this.state.device).family)) return;
     const task = this.headset.readMode().then(() => {}).catch((error: Error) => {
       if (!this.stopped && !this.intentionalDisconnect && this.state.connection === 'connected') this.log(`Mode sync: ${error.message}`);
     });
@@ -82,7 +92,7 @@ export class Controller extends EventEmitter {
     void task.finally(() => { if (this.modeSync === task) this.modeSync = null; });
   }
   private syncSources() {
-    if (this.stopped || this.intentionalDisconnect || this.state.busy || this.modeSync || this.sourceSync || this.state.connection !== 'connected' || this.state.settings.multipoint !== true || modelForDevice(this.state.device).family !== 'bose') return;
+    if (this.stopped || this.intentionalDisconnect || this.state.busy || this.modeSync || this.sourceSync || this.state.connection !== 'connected' || this.state.settings.multipoint !== true || !['bose', 'sony'].includes(modelForDevice(this.state.device).family) || (this.headset === this.sony && !this.state.settings.sony?.sourceManagement)) return;
     const generation = this.audioGeneration;
     const task = this.headset.readConnectedDevices().catch(() => null).then(devices => {
       if (this.stopped || generation !== this.audioGeneration || this.state.connection !== 'connected') return;
@@ -155,7 +165,7 @@ export class Controller extends EventEmitter {
   }
   private maybeAttachControls() {
     const device = this.state.device;
-    if (this.stopped || this.state.busy || this.intentionalDisconnect || this.state.connection !== 'disconnected' || !device || modelForDevice(device).family !== 'bose' || !this.state.devices.some(d => d.address === device.address && d.connected) || this.passiveAttempted === device.address) return;
+    if (this.stopped || this.state.busy || this.intentionalDisconnect || this.state.connection !== 'disconnected' || !device || !['bose', 'sony'].includes(modelForDevice(device).family) || !this.state.devices.some(d => d.address === device.address && d.connected) || this.passiveAttempted === device.address) return;
     this.passiveAttempted = device.address;
     // Adopt an existing OS link even when reconnecting disconnected headphones
     // is disabled. This path may open only the control channel, never baseband
@@ -191,8 +201,9 @@ export class Controller extends EventEmitter {
       // or rejecting clicks during routine mode synchronization.
       await Promise.all([this.modeSync, this.audioSync, this.sourceSync]);
       if (this.stopped) throw new Error('MomoBose is closing.');
-      if (['sources', 'sourceConnect', 'sourceDisconnect', 'sourceReplace'].includes(command.type) && (modelForDevice(this.state.device).family !== 'bose' || this.state.connection !== 'connected')) throw new Error('Connect Bose controls to manage paired sources.');
-      if (['mode', 'eq', 'multipoint', 'sidetone'].includes(command.type) && modelForDevice(this.state.device).family !== 'bose') throw new Error('Use the AirPods controls in system settings for this feature.');
+      if (['sources', 'sourceConnect', 'sourceDisconnect', 'sourceReplace'].includes(command.type) && (!['bose', 'sony'].includes(modelForDevice(this.state.device).family) || this.state.connection !== 'connected')) throw new Error('Connect headphone controls to manage paired sources.');
+      if (['mode', 'eq', 'multipoint', 'sidetone'].includes(command.type) && !['bose', 'sony'].includes(modelForDevice(this.state.device).family)) throw new Error('Use the AirPods controls in system settings for this feature.');
+      if (['sonyEq', 'sonyAmbient', 'sonySwitch'].includes(command.type) && (this.headset !== this.sony || this.state.connection !== 'connected')) throw new Error('Connect Sony headphone controls first.');
       switch (command.type) {
         case 'discover': await this.discover(); break;
         case 'connect': await this.connect(command.address, command.confirmedQc45, command.existingOnly); break;
@@ -225,10 +236,13 @@ export class Controller extends EventEmitter {
           break;
         }
         case 'volume': await this.volume(command.value); break;
-        case 'mode': await this.headset.mode(command.value); await this.refresh(); this.log(`Listening mode changed to ${command.value === ListeningMode.Quiet ? 'Quiet' : 'Aware'}.`); break;
+        case 'mode': await this.headset.mode(command.value); await this.refresh(); this.log(`Listening mode changed to ${command.value === ListeningMode.Off ? 'Off' : command.value === ListeningMode.Quiet ? this.headset === this.sony ? 'Noise cancelling' : 'Quiet' : this.headset === this.sony ? 'Ambient sound' : 'Aware'}.`); break;
         case 'eq': await this.headset.eq(command.value); await this.refresh(); this.log('Equalizer applied and verified.'); break;
         case 'multipoint': await this.headset.multipoint(command.value); await this.refresh(); this.log(`Multipoint ${command.value ? 'enabled' : 'disabled'} and verified.`); break;
         case 'sidetone': await this.headset.sidetone(command.value); await this.refresh(); this.log('Self voice changed and verified.'); break;
+        case 'sonyEq': await this.sony.equalizer(command.values, command.preset); await this.refresh(); this.log('Sony equalizer applied and verified.'); break;
+        case 'sonyAmbient': await this.sony.ambient(command.level, command.focusOnVoice); await this.refresh(); break;
+        case 'sonySwitch': await this.sony.switch(command.setting, command.value); await this.refresh(); break;
         case 'preferences': {
           if (command.value.appearance !== undefined) {
             if (!['system', 'light', 'dark'].includes(command.value.appearance)) throw new Error('Choose System, Light, or Dark.');
@@ -249,12 +263,12 @@ export class Controller extends EventEmitter {
       const message = error instanceof Error ? error.message : 'This action could not be completed.';
       this.state.error = message; this.log(message, 'error');
       // A failed multi-band write can apply partially. Do not keep stale controls on screen.
-      if (['mode', 'eq', 'multipoint', 'sidetone'].includes(command.type) && this.state.connection === 'connected') {
+      if (['mode', 'eq', 'multipoint', 'sidetone', 'sonyEq', 'sonyAmbient', 'sonySwitch'].includes(command.type) && this.state.connection === 'connected') {
         try { await this.refresh(); } catch { /* lost connection handler clears values */ }
       }
       if (['sources', 'sourceConnect', 'sourceDisconnect', 'sourceReplace'].includes(command.type)) {
         this.state.settings.pairedSources = null; this.state.settings.connectedDevices = null;
-        if (this.state.connection === 'connected' && modelForDevice(this.state.device).family === 'bose') {
+        if (this.state.connection === 'connected' && ['bose', 'sony'].includes(modelForDevice(this.state.device).family)) {
           try {
             const sources = await this.headset.listSources();
             this.state.settings.pairedSources = sources; this.state.settings.connectedDevices = sources.filter(source => source.connected);
@@ -306,13 +320,14 @@ export class Controller extends EventEmitter {
     const selected = this.state.devices.find(d => d.address === address);
     if (!selected) throw new Error('Headphones are no longer in the paired device list. Refresh the list.');
     const family = modelForDevice(selected).family;
-    if (family === 'unknown' && selected.productId) throw new Error('Choose a supported AirPods or Bose QuietComfort 45.');
-    if (family !== 'airpods' && !selected.productId && !confirmedQc45) throw new Error('Confirm that the selected headphones are your QC45.');
-    if (existingOnly && (!selected.connected || family !== 'bose')) throw new Error('The existing headphone connection is no longer available.');
+    if (family === 'unknown' && selected.productId) throw new Error('Choose a supported AirPods, Bose QC45, Sony WH-1000XM4, or WH-1000XM5.');
+    if (family === 'unknown' && !selected.productId && !confirmedQc45) throw new Error('Confirm that the selected headphones are your QC45.');
+    if (existingOnly && (!selected.connected || !['bose', 'sony'].includes(family))) throw new Error('The existing headphone connection is no longer available.');
     this.passiveAttempted = address;
     this.cancelRetry();
     this.intentionalDisconnect = true;
     await this.headset.close().catch(() => {});
+    this.headset = family === 'sony' ? this.sony : this.bose;
     this.intentionalDisconnect = false;
     this.audioGeneration++;
     this.state.device = selected; this.state.connection = 'connecting'; this.state.settings = emptySettings(); if (!existingOnly) this.state.audio = emptyAudio(); this.publish();
@@ -336,7 +351,8 @@ export class Controller extends EventEmitter {
       try { await this.native.request('reconnectAudio', { address, name: selected.name }); }
       catch (e) { this.log(`Audio reconnect: ${(e as Error).message}`); }
     }
-    await this.headset.connect(address, confirmedQc45, existingOnly);
+    if (this.headset === this.sony) await this.sony.connect(address, confirmedQc45, existingOnly, modelForDevice(selected).id);
+    else await this.bose.connect(address, confirmedQc45, existingOnly);
     this.state.connection = 'connected'; this.state.device.connected = true;
     this.state.preferences.selectedAddress = address; this.save(this.state.preferences); this.retries = 0;
     await this.refresh();
@@ -344,7 +360,7 @@ export class Controller extends EventEmitter {
       try { this.state.audio = await this.native.request('selectOutput', { address, name: selected.name }); }
       catch (e) { this.log((e as Error).message); }
     }
-    this.log('QC45 settings connected.');
+    this.log(`${family === 'sony' ? modelForDevice(selected).shortName : 'QC45'} settings connected.`);
     if (!this.state.audio.available) this.state.notice = 'Settings are connected. Audio is not ready yet; check Sound settings or wait a moment and refresh.';
     else if (!this.state.audio.isDefault) this.state.notice = 'Headphones are connected. Choose them as the output in Sound settings.';
   }

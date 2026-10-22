@@ -36,7 +36,14 @@ internal static class Program
                     case "list": result = Paired.List(includeAudioState: true); break;
                     case "connect":
                     {
-                        if (request.GetProperty("channel").GetInt32() != 8) throw new Exception("Only the QC45 settings channel is supported.");
+                        Guid? service = null;
+                        if (request.TryGetProperty("serviceUuid", out var serviceProperty))
+                        {
+                            if (!Guid.TryParse(serviceProperty.GetString(), out var parsed) ||
+                                (parsed != new Guid("96cc203e-5068-46ad-b32d-e316f5e069ba") && parsed != new Guid("956c7b26-d49a-4ba8-b03f-b17d393cb6e2"))) throw new Exception("Unsupported headphone service.");
+                            service = parsed;
+                        }
+                        else if (!request.TryGetProperty("channel", out var channelProperty) || channelProperty.GetInt32() != 8) throw new Exception("Unsupported headphone channel.");
                         var address = request.GetProperty("address").GetString()!;
                         var device = Paired.Find(address);
                         if (request.TryGetProperty("existingOnly", out var existingOnly) && existingOnly.GetBoolean() && !device.connected && Endpoint(device)?.IsConnected != true) throw new Exception("The existing headphone connection is no longer available.");
@@ -45,8 +52,10 @@ internal static class Program
                         var candidate = new Socket((AddressFamily)32, SocketType.Stream, (ProtocolType)3);
                         // ConnectEx is not available on every Bluetooth provider. Use Winsock's
                         // ordinary connect on a worker, bounded by disposal on timeout.
-                        try { Task.Run(() => candidate.Connect(new BluetoothEndpoint(address, 8))).WaitAsync(TimeSpan.FromSeconds(18)).GetAwaiter().GetResult(); }
-                        catch { candidate.Dispose(); throw new Exception("Could not connect to QC45 settings. Turn the headphones on, close the Bose app, and free a multipoint slot if needed."); }
+                        // A service GUID asks Windows SDP for Sony's RFCOMM port;
+                        // channel 8 remains specific to the Bose QC45 backend.
+                        try { Task.Run(() => candidate.Connect(new BluetoothEndpoint(address, service.HasValue ? 0u : 8u, service))).WaitAsync(TimeSpan.FromSeconds(18)).GetAwaiter().GetResult(); }
+                        catch { candidate.Dispose(); throw new Exception("Could not connect to headphone settings. Turn the headphones on, close the headphone app on your phone, and free a multipoint slot if needed."); }
                         candidate.SendTimeout = 5000;
                         socket = candidate; readerCancellation = new CancellationTokenSource();
                         var token = readerCancellation.Token; var epoch = generation;
@@ -65,7 +74,7 @@ internal static class Program
                             catch (Exception) { }
                             finally { if (generation == epoch) Emit(new { @event = "disconnected" }); }
                         });
-                        result = device; break;
+                        result = device with { localAddress = (candidate.LocalEndPoint as BluetoothEndpoint)?.BluetoothAddress }; break;
                     }
                     case "write":
                     {
@@ -126,8 +135,9 @@ internal static class Program
     }
 }
 
-internal sealed class BluetoothEndpoint(string address, uint channel) : EndPoint
+internal sealed class BluetoothEndpoint(string address, uint channel, Guid? service = null) : EndPoint
 {
+    public string BluetoothAddress => address;
     public override AddressFamily AddressFamily => (AddressFamily)32;
     public override SocketAddress Serialize()
     {
@@ -136,11 +146,22 @@ internal sealed class BluetoothEndpoint(string address, uint channel) : EndPoint
         var number = Convert.ToUInt64(address.Replace(":", "").Replace("-", ""), 16);
         var bytes = BitConverter.GetBytes(number);
         for (int i = 0; i < 8; i++) serialized[2 + i] = bytes[i];
+        if (service.HasValue)
+        {
+            var guid = service.Value.ToByteArray();
+            for (int i = 0; i < 16; i++) serialized[10 + i] = guid[i];
+        }
         var port = BitConverter.GetBytes(channel);
         for (int i = 0; i < 4; i++) serialized[26 + i] = port[i];
         return serialized;
     }
-    public override EndPoint Create(SocketAddress socketAddress) => this;
+    public override EndPoint Create(SocketAddress socketAddress)
+    {
+        var bytes = new byte[8];
+        for (int i = 0; i < 8; i++) bytes[i] = socketAddress[2 + i];
+        var raw = BitConverter.ToUInt64(bytes).ToString("X12");
+        return new BluetoothEndpoint(string.Join(":", Enumerable.Range(0, 6).Select(i => raw.Substring(i * 2, 2))), 0);
+    }
 }
 
 internal static class Paired
@@ -148,7 +169,8 @@ internal static class Paired
     public record Device(string address, string name, bool connected,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? vendorId = null,
         [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? productId = null,
-        [property: JsonIgnore] Guid? containerId = null);
+        [property: JsonIgnore] Guid? containerId = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? localAddress = null);
     public static Device Find(string address) => List().SingleOrDefault(d => d.address.Equals(address, StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("Pair your headphones in Windows Bluetooth settings first.");
     public static List<Device> List(bool includeAudioState = false)
     {

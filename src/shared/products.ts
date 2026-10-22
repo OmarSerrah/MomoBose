@@ -1,6 +1,8 @@
 import type { Headset } from './types';
 import { modelForDevice } from './models';
 import qc45Image from '../assets/bose-qc45-black-cutout.png';
+import sonyXm4 from '../assets/sony/wh-1000xm4-black.png';
+import sonyXm5 from '../assets/sony/wh-1000xm5-black.png';
 import airPods12 from '../assets/airpods/airpods-1-2.png';
 import airPods3 from '../assets/airpods/airpods-3.png';
 import airPods4 from '../assets/airpods/airpods-4.png';
@@ -33,5 +35,5 @@ const airPodsImages: Readonly<Record<string, string>> = {
 
 export function productForDevice(device: Headset | null | undefined) {
   const model = modelForDevice(device);
-  return { ...model, image: model.family === 'bose' ? qc45Image : model.family === 'airpods' ? airPodsImages[model.id] ?? null : null };
+  return { ...model, image: model.family === 'bose' ? qc45Image : model.family === 'sony' ? model.id === 'wh-1000xm4' ? sonyXm4 : sonyXm5 : model.family === 'airpods' ? airPodsImages[model.id] ?? null : null };
 }

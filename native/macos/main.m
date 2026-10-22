@@ -110,6 +110,8 @@ static NSDictionary *Audio(NSString *address, NSString *name, BOOL select, NSNum
 @property(nonatomic, strong) NSNumber *connectRequest;
 @property(nonatomic) NSUInteger generation;
 @property(nonatomic) BOOL existingOnly;
+@property(nonatomic, copy) NSString *serviceUuid;
+@property(nonatomic) BOOL sdpPending;
 - (void)handle:(NSDictionary *)request;
 - (void)close;
 @end
@@ -165,25 +167,54 @@ static NSDictionary *Audio(NSString *address, NSString *name, BOOL select, NSNum
 }
 - (void)close {
     self.generation++;
+    self.sdpPending = NO;
     if (self.connectRequest) { [self fail:self.connectRequest message:@"Connection cancelled."]; self.connectRequest = nil; }
     IOBluetoothRFCOMMChannel *old = self.channel; self.channel = nil;
     [old setDelegate:nil]; [old closeChannel];
 }
 - (void)openSettingsChannel {
+    if (self.serviceUuid) {
+        if (self.sdpPending) return;
+        self.sdpPending = YES;
+        IOReturn status = [self.device performSDPQuery:self];
+        if (status) {
+            self.sdpPending = NO;
+            [self fail:self.connectRequest message:@"Could not discover Sony controls. Close Sony Sound Connect on your phone and reconnect."]; self.connectRequest = nil;
+        }
+        return;
+    }
     NSUInteger generation = self.generation;
     [self.device performSDPQuery:nil];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 800 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
         if (self.generation != generation || !self.connectRequest) return;
+        [self openResolvedSettingsChannel];
+    });
+}
+- (void)sdpQueryComplete:(IOBluetoothDevice *)device status:(IOReturn)status {
+    if (device != self.device || !self.connectRequest || !self.sdpPending) return;
+    self.sdpPending = NO;
+    if (!status) [self openResolvedSettingsChannel];
+    else { [self fail:self.connectRequest message:@"Sony service discovery failed. Reconnect the headphones and close Sony Sound Connect on your phone."]; self.connectRequest = nil; }
+}
+- (void)openResolvedSettingsChannel {
+        if (!self.connectRequest) return;
         if (self.existingOnly && !self.device.isConnected) {
             [self fail:self.connectRequest message:@"The headphones disconnected before controls could be attached."]; self.connectRequest = nil; return;
         }
+        BluetoothRFCOMMChannelID channelID = 8;
+        if (self.serviceUuid) {
+            uuid_t bytes; [[[NSUUID alloc] initWithUUIDString:self.serviceUuid] getUUIDBytes:bytes];
+            IOBluetoothSDPServiceRecord *record = [self.device getServiceRecordForUUID:[IOBluetoothSDPUUID uuidWithBytes:bytes length:16]];
+            if (!record || [record getRFCOMMChannelID:&channelID] != kIOReturnSuccess || !channelID) {
+                [self fail:self.connectRequest message:@"Sony controls are unavailable. Close Sony Sound Connect on your phone and reconnect the headphones."]; self.connectRequest = nil; return;
+            }
+        }
         IOBluetoothRFCOMMChannel *opened = nil;
-        IOReturn status = [self.device openRFCOMMChannelAsync:&opened withChannelID:8 delegate:self];
+        IOReturn status = [self.device openRFCOMMChannelAsync:&opened withChannelID:channelID delegate:self];
         if (status) {
-            [self fail:self.connectRequest message:[NSString stringWithFormat:@"Could not open QC45 settings (status %d). Close the Bose app, check Bluetooth permission, and retry.", status]];
+            [self fail:self.connectRequest message:[NSString stringWithFormat:@"Could not open headphone settings (status %d). Close the headphone app on your phone, check Bluetooth permission, and retry.", status]];
             self.connectRequest = nil;
         } else self.channel = opened;
-    });
 }
 - (void)connectionComplete:(IOBluetoothDevice *)device status:(IOReturn)status {
     if (device != self.device || !self.connectRequest) return;
@@ -205,8 +236,11 @@ static NSDictionary *Audio(NSString *address, NSString *name, BOOL select, NSNum
             }
             [self finish:requestID result:list];
         } else if ([method isEqualToString:@"connect"]) {
-            if (![request[@"address"] isKindOfClass:[NSString class]] || [request[@"channel"] intValue] != 8) @throw Failure(@"Invalid QC45 connection request.");
+            NSString *service = [request[@"serviceUuid"] isKindOfClass:[NSString class]] ? [request[@"serviceUuid"] lowercaseString] : nil;
+            BOOL sonyService = [@[@"96cc203e-5068-46ad-b32d-e316f5e069ba", @"956c7b26-d49a-4ba8-b03f-b17d393cb6e2"] containsObject:service ?: @""];
+            if (![request[@"address"] isKindOfClass:[NSString class]] || (service ? !sonyService : [request[@"channel"] intValue] != 8)) @throw Failure(@"Invalid headphone connection request.");
             [self close]; self.device = [self find:request[@"address"]]; self.existingOnly = [request[@"existingOnly"] boolValue];
+            self.serviceUuid = service;
             if (self.existingOnly && !self.device.isConnected) @throw Failure(@"The existing headphone connection is no longer available.");
             self.connectRequest = requestID;
             NSUInteger generation = self.generation;
@@ -251,8 +285,13 @@ static NSDictionary *Audio(NSString *address, NSString *name, BOOL select, NSNum
 - (void)rfcommChannelOpenComplete:(IOBluetoothRFCOMMChannel *)opened status:(IOReturn)status {
     if (!self.connectRequest || (self.channel && self.channel != opened)) { [opened setDelegate:nil]; [opened closeChannel]; return; }
     NSNumber *requestID = self.connectRequest; self.connectRequest = nil;
-    if (!status) { self.channel = opened; [self finish:requestID result:[self metadata:self.device]]; }
-    else { self.channel = nil; [self fail:requestID message:[NSString stringWithFormat:@"Could not connect to QC45 settings (status %d). Make sure the headphones are on and the Bose app is closed.", status]]; }
+    if (!status) {
+        self.channel = opened;
+        NSMutableDictionary *metadata = [[self metadata:self.device] mutableCopy];
+        NSString *local = [[IOBluetoothHostController defaultController] addressAsString];
+        if (local) metadata[@"localAddress"] = local;
+        [self finish:requestID result:metadata];
+    } else { self.channel = nil; [self fail:requestID message:[NSString stringWithFormat:@"Could not connect to headphone settings (status %d). Make sure the headphones are on and close the headphone app on your phone.", status]]; }
 }
 - (void)rfcommChannelData:(IOBluetoothRFCOMMChannel *)source data:(void *)pointer length:(size_t)length {
     if (source != self.channel || !length || length > 4096) return;

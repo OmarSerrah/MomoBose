@@ -4,7 +4,7 @@
   "version": "0.1.12",
   "private": true,
   "type": "module",
-  "description": "A quieter way to connect. Bose QC45 controls for your desktop.",
+  "description": "Desktop controls for Bose QC45, Sony WH-1000XM4/XM5, and Apple AirPods.",
   "author": "Momo",
   "license": "MIT",
   "main": "dist-electron/main.cjs",
@@ -50,8 +50,8 @@
       "hardenedRuntime": true,
       "entitlements": "native/macos/entitlements.plist",
       "extendInfo": {
-        "NSBluetoothAlwaysUsageDescription": "MomoBose connects to your Bose headphones to show battery and change your sound settings.",
-        "NSBluetoothPeripheralUsageDescription": "MomoBose connects to your Bose headphones.",
+        "NSBluetoothAlwaysUsageDescription": "MomoBose connects to your headphones to show battery and change your sound settings.",
+        "NSBluetoothPeripheralUsageDescription": "MomoBose connects to your headphones.",
         "LSMinimumSystemVersion": "12.0"
       }
     },

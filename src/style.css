@@ -94,6 +94,18 @@ h2 { font-size: 20px; font-weight: 700; line-height: 1.2; letter-spacing: -.3px;
 .control-card { padding: var(--space-4); border: 1px solid var(--line); border-radius: 10px; background: var(--panel); flex-shrink: 0; }
 .section-label { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
 .mode-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; background: var(--well); border-radius: 8px; box-shadow: inset 0 0 0 1px var(--separator); }
+.sony-mode-picker { grid-template-columns: 1fr 1fr auto; }
+.sony-mode-picker > button { padding-inline: 6px; }
+.sony-ambient { padding: 12px 0; }
+.sony-ambient-level > span { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; }
+.sony-ambient-level input { display: block; width: 100%; margin-inline: 0; }
+.sony-voice { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 12px; }
+.sony-eq .eq-controls { row-gap: 16px; }
+.sony-eq .eq-band > span:first-child { white-space: nowrap; }
+.sony-eq-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.sony-features .setting-row + .setting-row { border-top: 1px solid var(--separator); margin-top: 12px; padding-top: 12px; }
+.widget .sony-mode-picker > button { gap: 4px; }
+.widget .sony-mode-picker strong { font-size: 10px; }
 .mode-picker > button { position: relative; min-width: 0; display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: 6px var(--space-3); min-height: 30px; border: 0; border-radius: 6px; color: var(--text); background: transparent; }
 .mode-picker > button.active { background: var(--selected); box-shadow: var(--shadow); }
 .mode-picker > button:hover:not(:disabled):not(.active) { background: var(--hover); }

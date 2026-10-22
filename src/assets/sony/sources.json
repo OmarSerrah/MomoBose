@@ -1,0 +1,22 @@
+{
+  "retrieved": "2026-10-22",
+  "processing": "Original transparent PNG downloads, unmodified; no upscaling or generated product details.",
+  "images": [
+    {
+      "file": "wh-1000xm4-black.png",
+      "model": "Sony WH-1000XM4",
+      "source": "https://www.spark.co.nz/content/dam/spark/images/product-images/accessories/headphones/sony/sony-wh-1000xm4-b-1.png",
+      "page": "https://www.spark.co.nz/online/shop/headphones-earphones/sony-wh-1000xm4-group/",
+      "width": 1200,
+      "height": 1200
+    },
+    {
+      "file": "wh-1000xm5-black.png",
+      "model": "Sony WH-1000XM5",
+      "source": "https://thesourceav.com/cdn/shop/files/103364_original_local_1200x1050_converted.png?v=1752791399",
+      "page": "https://thesourceav.com/products/sony-wh-1000xm5",
+      "width": 1200,
+      "height": 1050
+    }
+  ]
+}

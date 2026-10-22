@@ -5,6 +5,45 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { createDemoAPI } from '../src/shared/demo';
 import type { AppState } from '../src/shared/types';
 afterEach(() => { cleanup(); history.replaceState({}, '', '/'); vi.resetModules(); });
+it.each(['xm4', 'xm5'] as const)('shows native Sony %s controls and keeps EQ edits local until applied', async model => {
+  const api = createDemoAPI(undefined, model); window.momoBose = api;
+  const commands = vi.spyOn(api, 'command').mockResolvedValue({ ok: true });
+  const { default: App } = await import('../src/App'); render(<App/>);
+  await screen.findByRole('heading', { name: `WH-1000XM${model === 'xm4' ? 4 : 5}` });
+  expect(screen.queryByRole('combobox', { name: 'Self voice' })).toBeNull();
+  expect(screen.getByRole('slider', { name: '400 Hz' })).toBeDefined();
+  fireEvent.change(screen.getByRole('slider', { name: 'Clear Bass' }), { target: { value: '-4' } });
+  expect(commands).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply EQ' }));
+  expect(commands).toHaveBeenLastCalledWith({ type: 'sonyEq', values: [-4, 0, 1, 0, 0, 0] });
+  fireEvent.click(screen.getByRole('button', { name: /Noise control off/ }));
+  expect(commands).toHaveBeenLastCalledWith({ type: 'mode', value: 3 });
+  fireEvent.click(screen.getByRole('switch', { name: 'Speak-to-Chat' }));
+  expect(commands).toHaveBeenLastCalledWith({ type: 'sonySwitch', setting: 'speakToChat', value: true });
+});
+it('offers Sony noise modes and multipoint in the widget', async () => {
+  history.replaceState({}, '', '/?widget=1');
+  const api = createDemoAPI(undefined, 'xm5'); window.momoBose = api;
+  const commands = vi.spyOn(api, 'command').mockResolvedValue({ ok: true });
+  const { default: App } = await import('../src/App'); render(<App/>);
+  await screen.findByRole('heading', { name: 'WH-1000XM5' });
+  fireEvent.click(screen.getByRole('button', { name: /Ambient sound/ }));
+  expect(commands).toHaveBeenLastCalledWith({ type: 'mode', value: 1 });
+  expect(screen.queryByRole('slider', { name: 'Clear Bass' })).toBeNull();
+  expect(screen.getByRole('switch', { name: 'Multipoint' })).toBeDefined();
+});
+it('applies Sony ambient level and focus-on-voice together', async () => {
+  const api = createDemoAPI(undefined, 'xm4');
+  await api.command({ type: 'mode', value: 1 }); window.momoBose = api;
+  const commands = vi.spyOn(api, 'command').mockResolvedValue({ ok: true });
+  const { default: App } = await import('../src/App'); render(<App/>);
+  await screen.findByRole('heading', { name: 'WH-1000XM4' });
+  fireEvent.change(screen.getByRole('slider', { name: 'Ambient sound level' }), { target: { value: '8' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Focus on voice' }));
+  expect(commands).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply ambient sound' }));
+  expect(commands).toHaveBeenLastCalledWith({ type: 'sonyAmbient', level: 8, focusOnVoice: true });
+});
 it.each(['desktop', 'widget'])('sends semantic Quiet/Aware selections in the %s view', async view => {
   history.replaceState({}, '', view === 'widget' ? '/?widget=1' : '/');
   const api = createDemoAPI(); window.momoBose = api;

@@ -1,7 +1,7 @@
 import type { Headset } from './types';
 export interface HeadphoneModel {
   id: string;
-  family: 'bose' | 'airpods' | 'unknown';
+  family: 'bose' | 'airpods' | 'sony' | 'unknown';
   name: string;
   shortName: string;
   form: 'earbuds' | 'headphones';
@@ -33,6 +33,14 @@ export const airPodsModels: Record<number, HeadphoneModel> = {
 };
 export function modelForDevice(device: Headset | null | undefined): HeadphoneModel {
   if (!device) return unknown;
+  // Sony's Bluetooth product identity is not consistent across firmware/OSes.
+  // Match the exact WH model name, with a Sony (or missing) vendor identity.
+  // Do not confuse WF earbuds, LE companion devices, or other generations.
+  const sony = /\bWH[\s-]?1000XM([45])\b/i.exec(device.name);
+  if (sony && !/^LE[_ -]/i.test(device.name) && (device.vendorId === undefined || [0x012d, 0x054c].includes(device.vendorId)) && !(device.vendorId === undefined && device.productId && (device.productId === 0x4039 || airPodsModels[device.productId]))) {
+    const name = `WH-1000XM${sony[1]}`;
+    return { id: name.toLowerCase(), family: 'sony', name: `Sony ${name}`, shortName: name, form: 'headphones', noiseControl: true, automaticSwitching: false };
+  }
   if (device.productId) {
     if (device.productId === 0x4039 && (device.vendorId === undefined || [0x009e, 0x05a7].includes(device.vendorId))) return bose;
     if ((device.vendorId === undefined || [0x004c, 0x05ac].includes(device.vendorId)) && airPodsModels[device.productId]) return airPodsModels[device.productId];

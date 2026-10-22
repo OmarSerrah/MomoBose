@@ -15,6 +15,17 @@ Exact edit prompt:
 
 Image source and ownership are recorded in `THIRD_PARTY_NOTICES.md`.
 
+## Sony WH-1000XM4 and WH-1000XM5 artwork
+
+Both models use their own bundled black product photograph in the desktop
+window and widget. The XM4 is a 1200 × 1200 PNG from Spark NZ; the XM5 is a
+1200 × 1050 PNG from The Source AV. Both downloads already include transparency,
+including inside the headband opening. They are stored unmodified, with no
+enlargement, generated details, or background extraction. Metadata and alpha
+pixels were checked, and the images were inspected against both app appearances.
+`src/assets/sony/sources.json` records the product pages and exact image URLs.
+The black finish represents the model; Bluetooth does not report its color.
+
 ## AirPods artwork
 
 All recognized AirPods models use bundled transparent PNG photographs from

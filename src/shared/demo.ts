@@ -1,7 +1,7 @@
 import { ListeningMode, defaultPreferences, type AppState, type Command, type DesktopAPI } from './types';
 import { airPodsModels } from './models';
 import { APP_VERSION } from './version';
-export function createDemoAPI(airPodsProductId?: number): DesktopAPI {
+export function createDemoAPI(airPodsProductId?: number, sonyModel?: 'xm4' | 'xm5'): DesktopAPI {
   let state: AppState = {
     platform: 'darwin', version: APP_VERSION, demo: true,
     devices: [{ name: 'Ghost', address: '00:00:00:00:00:45', connected: true, productId: 0x4039 }],
@@ -20,6 +20,16 @@ export function createDemoAPI(airPodsProductId?: number): DesktopAPI {
     state.audio.name = state.device.name;
   }
   const apple = structuredClone(state);
+  if (sonyModel) {
+    state.device = { name: `WH-1000XM${sonyModel === 'xm4' ? 4 : 5}`, address: '00:00:00:00:00:05', vendorId: 0x012d, connected: true };
+    state.devices.push(state.device);
+    state.settings = { ...structuredClone(bose.settings), eq: null, sidetone: null, firmware: '2.0.0', sony: {
+      ambientLevel: 20, focusOnVoice: false, equalizer: { preset: 0xa0, values: [2, 0, 1, 0, 0, 0], presets: [{ id: 0, name: 'Off' }, { id: 0x10, name: 'Bright' }, { id: 0xa0, name: 'Manual' }, { id: 0xa1, name: 'Custom 1' }, { id: 0xa2, name: 'Custom 2' }] },
+      speakToChat: false, touchSensor: true, wearingDetection: true, dsee: true, sourceManagement: true,
+    } };
+    state.audio.name = state.device.name;
+  }
+  const sony = structuredClone(state);
   const listeners = new Set<(state: AppState) => void>();
   const publish = () => { for (const listener of listeners) listener(structuredClone(state)); };
   return {
@@ -40,7 +50,10 @@ export function createDemoAPI(airPodsProductId?: number): DesktopAPI {
         case 'eq': state.settings.eq = command.value; break;
         case 'multipoint': state.settings.multipoint = command.value; break;
         case 'sidetone': state.settings.sidetone = command.value; break;
-        case 'connect': { const device = state.devices.find(d => d.address === command.address); if (device) { state.device = device; state.settings = structuredClone(device.vendorId === 0x004c ? apple.settings : bose.settings); state.audio.name = device.name; } } state.audio.volume = 42; state.audio.volumeWritable = true; state.connection = 'connected'; state.audio.available = true; state.audio.isDefault = true; break;
+        case 'sonyEq': if (state.settings.sony?.equalizer) { if (command.values) { state.settings.sony.equalizer.values = [...command.values]; state.settings.sony.equalizer.preset = 0xa0; } else if (command.preset !== undefined) state.settings.sony.equalizer.preset = command.preset; } break;
+        case 'sonyAmbient': if (state.settings.sony) { state.settings.sony.ambientLevel = command.level; state.settings.sony.focusOnVoice = command.focusOnVoice; state.settings.mode = ListeningMode.Aware; } break;
+        case 'sonySwitch': if (state.settings.sony) state.settings.sony[command.setting] = command.value; break;
+        case 'connect': { const device = state.devices.find(d => d.address === command.address); if (device) { state.device = device; state.settings = structuredClone(device.vendorId === 0x004c ? apple.settings : device.vendorId === 0x012d ? sony.settings : bose.settings); state.audio.name = device.name; } } state.audio.volume = 42; state.audio.volumeWritable = true; state.connection = 'connected'; state.audio.available = true; state.audio.isDefault = true; break;
         case 'disconnect': state.audio.volume = null; state.audio.volumeWritable = false; state.connection = 'disconnected'; state.audio.available = false; state.audio.isDefault = false; break;
         case 'preferences': Object.assign(state.preferences, command.value); break;
         case 'dismissError': state.error = null; break;

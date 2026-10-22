@@ -1,6 +1,24 @@
 # Third-party notices
 
-MomoBose is an independent, unofficial Bose QC45 controller. Bose and QuietComfort are trademarks of Bose Corporation.
+MomoBose is an independent, unofficial headphone controller. Bose and QuietComfort are trademarks of Bose Corporation. Sony, WH-1000XM4, and WH-1000XM5 are Sony trademarks.
+
+## Sony product photographs and protocol references
+
+`src/assets/sony/wh-1000xm4-black.png` (1200 × 1200) was retrieved from
+[Spark NZ](https://www.spark.co.nz/online/shop/headphones-earphones/sony-wh-1000xm4-group/).
+`src/assets/sony/wh-1000xm5-black.png` (1200 × 1050) was retrieved from
+[The Source AV](https://thesourceav.com/products/sony-wh-1000xm5).
+The original transparent PNGs are bundled without alteration. Exact source URLs
+and retrieval details are in `src/assets/sony/sources.json`. Sony product imagery
+belongs to its respective owners and is not covered by MomoBose's MIT license.
+The representative black finish does not imply detection of the device's color.
+
+The independently implemented Sony MDR backend was cross-checked against
+[XM Connect](https://github.com/manurrdd/xm-connect),
+[Sony Tray](https://github.com/abhiinhii/sony-tray), and
+[SonyHeadphonesClient](https://github.com/mos9527/SonyHeadphonesClient).
+These MIT-licensed projects document protocol layouts and captured device
+behavior; no library from them is bundled. See `docs/sony.md` for exact references.
 
 ## bosectl
 

@@ -48,6 +48,11 @@ internal static class WindowsTests
         {
             var serialized = new BluetoothEndpoint("00:11:22:33:44:55", 8).Serialize();
             Check(serialized.Size == 30 && serialized[2] == 0x55 && serialized[7] == 0 && serialized[26] == 8, "Preserve packed Windows RFCOMM address layout");
+            var sonyService = new Guid("956c7b26-d49a-4ba8-b03f-b17d393cb6e2");
+            var sonyEndpoint = new BluetoothEndpoint("00:11:22:33:44:55", 0, sonyService);
+            var sony = sonyEndpoint.Serialize();
+            Check(Enumerable.Range(0, 16).All(i => sony[10 + i] == sonyService.ToByteArray()[i]) && sony[26] == 0, "Resolve Sony RFCOMM by service GUID through SDP");
+            Check(((BluetoothEndpoint)sonyEndpoint.Create(sony)).BluetoothAddress == "00:11:22:33:44:55", "Decode native local Bluetooth endpoint without retaining the remote address");
         }
         Console.WriteLine("Windows identity and endpoint selection regression checks passed.");
     }

@@ -1,3 +1,32 @@
+# Sony WH-1000XM4/XM5 implementation
+
+Checked on 2026-10-22 on Apple Silicon macOS. Sony support is experimental:
+neither model has been connected to this build for hardware validation.
+
+The app now has a separate Sony MDR backend (v1 for XM4, v2 for XM5), native
+service-based RFCOMM discovery on both platforms, and Sony controls in the
+desktop window and widget/tray. Automated coverage includes independent wire
+fixtures, escaping/checksums/fragmentation, capability-based controls, each
+model's switch encodings, noise modes, six-value EQ, write/readback mismatches,
+timeouts, live notifications, source management, and local-computer protection.
+UI checks cover both models, staged EQ/ambient changes, and widget commands.
+The existing Bose/AirPods regression tests continue to pass.
+
+Local validation: all 183 Vitest tests passed. Production build/type checking and the macOS native helper
+build passed; the .NET identity/endpoint regression executable passed; the
+self-contained Windows x64 helper published successfully. Windows RFCOMM
+service-GUID/address serialization assertions are Windows-only and remain
+unexecuted locally. Native Bluetooth/audio on Windows requires hardware testing.
+
+Both models use original transparent PNGs, bundled for offline use: XM4 is
+1200 × 1200 and XM5 is 1200 × 1050. Alpha pixels outside the product and inside
+the headband were checked. Browser demo checks cover artwork, light/dark
+appearance, desktop and widget layouts, and horizontal overflow.
+
+See [Sony support](docs/sony.md) for supported commands, protocol references,
+name-based identification limits, self-voice limitations, and the outstanding
+hardware checklist. Browser screenshots/demo readings are simulated.
+
 # MomoBose 0.1.12 Windows startup, QC45 identity, and listening mode fixes
 
 Checked on 2026-10-22 on Apple Silicon macOS. Windows hardware testing remains

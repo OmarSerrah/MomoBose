@@ -23,9 +23,21 @@ export interface Preferences {
   selectedAddress: string | null;
 }
 // App values describe the sound mode; they are never raw BMAP slot indices.
-export const ListeningMode = { Quiet: 0, Aware: 1, Custom: 2 } as const;
+export const ListeningMode = { Quiet: 0, Aware: 1, Custom: 2, Off: 3 } as const;
+export type SonySwitch = 'speakToChat' | 'touchSensor' | 'wearingDetection' | 'dsee';
+export interface SonySettings {
+  ambientLevel: number | null;
+  focusOnVoice: boolean | null;
+  equalizer: { preset: number; values: number[]; presets: { id: number; name: string }[] } | null;
+  speakToChat: boolean | null;
+  touchSensor: boolean | null;
+  wearingDetection: boolean | null;
+  dsee: boolean | null;
+  sourceManagement: boolean;
+}
 export interface AudioSource { address: string; name: string | null; isLocalDevice: boolean; connected: boolean }
 export interface HeadsetSettings {
+  sony?: SonySettings;
   battery: number | null;
   batteries?: { left: number | null; right: number | null; case: number | null } | null;
   batteryUpdatedAt?: string | null;
@@ -69,6 +81,9 @@ export type Command =
   | { type: 'eq'; value: [number, number, number] }
   | { type: 'multipoint'; value: boolean }
   | { type: 'sidetone'; value: number }
+  | { type: 'sonyEq'; values?: number[]; preset?: number }
+  | { type: 'sonyAmbient'; level: number; focusOnVoice: boolean }
+  | { type: 'sonySwitch'; setting: SonySwitch; value: boolean }
   | { type: 'preferences'; value: Partial<Omit<Preferences, 'selectedAddress'>> }
   | { type: 'openSettings'; page: 'bluetooth' | 'sound' | 'permissions' | 'airpods' }
   | { type: 'showWindow' }
