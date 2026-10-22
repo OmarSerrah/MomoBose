@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using BTAudioTray;
 
 internal static class Program
@@ -32,13 +33,13 @@ internal static class Program
                 object result = new { };
                 switch (method)
                 {
-                    case "list": result = Paired.List(); break;
+                    case "list": result = Paired.List(includeAudioState: true); break;
                     case "connect":
                     {
                         if (request.GetProperty("channel").GetInt32() != 8) throw new Exception("Only the QC45 settings channel is supported.");
                         var address = request.GetProperty("address").GetString()!;
                         var device = Paired.Find(address);
-                        if (request.TryGetProperty("existingOnly", out var existingOnly) && existingOnly.GetBoolean() && !device.connected) throw new Exception("The existing headphone connection is no longer available.");
+                        if (request.TryGetProperty("existingOnly", out var existingOnly) && existingOnly.GetBoolean() && !device.connected && Endpoint(device)?.IsConnected != true) throw new Exception("The existing headphone connection is no longer available.");
                         Close();
                         // AF_BTH = 32, SOCK_STREAM = 1, BTHPROTO_RFCOMM = 3.
                         var candidate = new Socket((AddressFamily)32, SocketType.Stream, (ProtocolType)3);
@@ -64,7 +65,7 @@ internal static class Program
                             catch (Exception) { }
                             finally { if (generation == epoch) Emit(new { @event = "disconnected" }); }
                         });
-                        result = new { address = device.address, name = device.name }; break;
+                        result = device; break;
                     }
                     case "write":
                     {
@@ -83,21 +84,21 @@ internal static class Program
                     case "disconnect":
                     {
                         var device = Paired.Find(request.GetProperty("address").GetString()!); Close();
-                        var endpoint = Endpoint(device.name);
+                        var endpoint = Endpoint(device);
                         if (endpoint != null && !BluetoothManager.Disconnect(endpoint.EndpointId)) throw new Exception("Windows could not disconnect audio. Use Bluetooth settings.");
                         break;
                     }
                     case "reconnectAudio":
                     {
                         var device = Paired.Find(request.GetProperty("address").GetString()!);
-                        var endpoint = Endpoint(device.name) ?? throw new Exception("No headphone audio endpoint yet. Pair the headphones in Windows Bluetooth settings.");
+                        var endpoint = Endpoint(device) ?? throw new Exception("No headphone audio endpoint yet. Pair the headphones in Windows Bluetooth settings.");
                         if (!endpoint.IsConnected && !BluetoothManager.Connect(endpoint.EndpointId)) throw new Exception("Windows could not start audio. Connect through Bluetooth settings.");
                         break;
                     }
                     case "audioStatus": case "selectOutput": case "volume":
                     {
                         var device = Paired.Find(request.GetProperty("address").GetString()!);
-                        var endpoint = Endpoint(device.name);
+                        var endpoint = Endpoint(device);
                         if (method == "selectOutput")
                         {
                             if (endpoint == null || !endpoint.IsConnected) throw new Exception("Headphone audio is not ready. Choose your headphones in Sound settings.");
@@ -117,12 +118,11 @@ internal static class Program
         }
         Close();
     }
-    static BluetoothManager.BtDevice? Endpoint(string name)
+    static BluetoothManager.BtDevice? Endpoint(Paired.Device device)
     {
-        // Never select an arbitrary active speaker. Refuse duplicate names.
-        if (Paired.List().Count(d => d.name.Equals(name, StringComparison.OrdinalIgnoreCase)) != 1) return null;
-        var matches = BluetoothManager.GetBluetoothAudioDevices().Where(d => d.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).ToArray();
-        return matches.Length == 1 ? matches[0] : null;
+        return BluetoothManager.MatchDevice(device.name, device.containerId,
+            Paired.List().Count(d => d.name.Equals(device.name, StringComparison.OrdinalIgnoreCase)),
+            BluetoothManager.GetBluetoothAudioDevices());
     }
 }
 
@@ -145,9 +145,12 @@ internal sealed class BluetoothEndpoint(string address, uint channel) : EndPoint
 
 internal static class Paired
 {
-    public record Device(string address, string name, bool connected);
+    public record Device(string address, string name, bool connected,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? vendorId = null,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? productId = null,
+        [property: JsonIgnore] Guid? containerId = null);
     public static Device Find(string address) => List().SingleOrDefault(d => d.address.Equals(address, StringComparison.OrdinalIgnoreCase)) ?? throw new Exception("Pair your headphones in Windows Bluetooth settings first.");
-    public static List<Device> List()
+    public static List<Device> List(bool includeAudioState = false)
     {
         var list = new List<Device>();
         var search = new Search { size = Marshal.SizeOf<Search>(), authenticated = true, remembered = true, connected = true, inquiry = false, timeout = 1 };
@@ -161,12 +164,26 @@ internal static class Paired
                 if (((info.deviceClass >> 8) & 0x1f) == 4 || info.name.Contains("bose", StringComparison.OrdinalIgnoreCase) || info.name.Equals("Ghost", StringComparison.OrdinalIgnoreCase) || info.name.Contains("airpods", StringComparison.OrdinalIgnoreCase))
                 {
                     string raw = info.address.ToString("X12");
-                    list.Add(new Device(string.Join(":", Enumerable.Range(0, 6).Select(i => raw.Substring(i * 2, 2))), info.name, info.connected));
+                    var identity = DeviceIdentity.Find(raw);
+                    list.Add(new Device(string.Join(":", Enumerable.Range(0, 6).Select(i => raw.Substring(i * 2, 2))), info.name, info.connected,
+                        identity?.VendorId, identity?.ProductId, identity?.ContainerId));
                 }
                 info.size = Marshal.SizeOf<Info>();
             } while (BluetoothFindNextDevice(handle, ref info));
         }
         finally { BluetoothFindDeviceClose(handle); }
+        if (includeAudioState)
+        {
+            // Audio endpoints can be active before the Bluetooth enumeration
+            // cache reports the connection. Observe that link without routing it.
+            try
+            {
+                var endpoints = BluetoothManager.GetBluetoothAudioDevices();
+                list = list.Select(d => d with { connected = d.connected || BluetoothManager.MatchDevice(d.name, d.containerId,
+                    list.Count(other => other.name.Equals(d.name, StringComparison.OrdinalIgnoreCase)), endpoints)?.IsConnected == true }).ToList();
+            }
+            catch (Exception error) { Console.Error.WriteLine($"Windows audio discovery: {error.Message}"); }
+        }
         return list;
     }
     [StructLayout(LayoutKind.Sequential)] struct SystemTime { public ushort year, month, dayOfWeek, day, hour, minute, second, milliseconds; }

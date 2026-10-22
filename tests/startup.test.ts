@@ -2,9 +2,50 @@ import { expect, it, vi } from 'vitest';
 import { Controller } from '../electron/controller';
 import { defaultPreferences } from '../src/shared/types';
 import { FakeTransport } from './fake-transport';
+import { productForDevice } from '../src/shared/products';
 
 const address = '00:00:00:00:00:45';
 const savedAddress = '00:00:00:00:00:46';
+
+it.each(['Bose QC45', 'Bose QuietComfort 45'])('attaches Windows controls to an already-connected %s without a product ID', async name => {
+  vi.useFakeTimers();
+  const transport = new FakeTransport();
+  const request = transport.request.bind(transport);
+  vi.spyOn(transport, 'request').mockImplementation((method, params = {}) => method === 'list'
+    ? Promise.resolve([{ address, name, connected: true }]) : request(method, params));
+  const controller = new Controller(transport, { ...defaultPreferences, autoReconnect: false }, () => {}, 'win32');
+  try {
+    await controller.start(); await vi.advanceTimersByTimeAsync(2500);
+    expect(controller.state.connection).toBe('connected');
+    expect(productForDevice(controller.state.device).image).toMatch(/bose-qc45-black-cutout\.png$/);
+    expect(transport.nativeRequests.filter(r => r.method === 'connect')).toEqual([
+      { method: 'connect', params: { address, channel: 8, existingOnly: true } },
+    ]);
+    expect(transport.nativeRequests.some(r => ['selectOutput', 'reconnectAudio', 'disconnect', 'volume'].includes(r.method))).toBe(false);
+    const changing = controller.execute({ type: 'mode', value: 1 });
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(await changing).toEqual({ ok: true });
+    expect(controller.state.settings.mode).toBe(1);
+  } finally { controller.stop(); vi.useRealTimers(); }
+});
+
+it('recognizes a renamed Windows QC45 when cached hardware identity arrives on a later discovery', async () => {
+  vi.useFakeTimers();
+  const transport = new FakeTransport(); let identified = false;
+  const request = transport.request.bind(transport);
+  vi.spyOn(transport, 'request').mockImplementation((method, params = {}) => method === 'list'
+    ? Promise.resolve([{ address, name: 'Ghost', connected: true, ...(identified ? { vendorId: 0x009e, productId: 0x4039 } : {}) }]) : request(method, params));
+  const controller = new Controller(transport, { ...defaultPreferences, selectedAddress: address }, () => {}, 'win32');
+  try {
+    await controller.start(); await vi.advanceTimersByTimeAsync(500);
+    expect(transport.nativeRequests.some(r => r.method === 'connect')).toBe(false);
+    identified = true; await vi.advanceTimersByTimeAsync(7000);
+    expect(controller.state.connection).toBe('connected');
+    expect(productForDevice(controller.state.device).image).toMatch(/bose-qc45-black-cutout\.png$/);
+    expect(controller.state.device?.vendorId).toBe(0x009e);
+    expect(transport.nativeRequests.filter(r => r.method === 'connect')).toHaveLength(1);
+  } finally { controller.stop(); vi.useRealTimers(); }
+});
 
 it.each([false, true])('adopts the current Mac output instead of a saved headset whose Bluetooth connection is %s', async savedConnected => {
   vi.useFakeTimers();

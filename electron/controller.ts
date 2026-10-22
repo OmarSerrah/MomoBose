@@ -99,7 +99,7 @@ export class Controller extends EventEmitter {
     const task = (async () => {
       const devices = (await this.native.request('list') as Headset[]).filter(d => d && typeof d.address === 'string' && typeof d.name === 'string');
       if (this.stopped || this.state.busy || generation !== this.audioGeneration) return;
-      let selected = this.state.device;
+      let selected = devices.find(d => d.address === this.state.device?.address) ?? this.state.device;
       // Follow a newly active system output only when no Bose control session is
       // in use. Observing OS connections must never reroute audio or open BMAP.
       if (this.state.connection !== 'connected' || modelForDevice(selected).family === 'airpods') {
@@ -115,7 +115,7 @@ export class Controller extends EventEmitter {
       if (selected && selected.address !== this.state.device?.address) {
         this.audioGeneration++; this.state.device = selected; this.state.settings = emptySettings(); this.state.audio = emptyAudio(); this.state.connection = 'disconnected'; this.state.error = null;
         this.publish(); this.syncAudio();
-      } else if (changed) { this.publish(); this.maybeAttachControls(); }
+      } else if (changed) { this.state.device = selected; this.publish(); this.maybeAttachControls(); }
     })().catch(error => { if (!this.stopped) this.log(`Device discovery: ${(error as Error).message}`); });
     this.deviceSync = task;
     void task.finally(() => { if (this.deviceSync === task) this.deviceSync = null; });
@@ -155,7 +155,7 @@ export class Controller extends EventEmitter {
   }
   private maybeAttachControls() {
     const device = this.state.device;
-    if (this.stopped || this.state.busy || this.intentionalDisconnect || this.state.connection !== 'disconnected' || !device || device.productId !== 0x4039 || modelForDevice(device).family !== 'bose' || !this.state.devices.some(d => d.address === device.address && d.connected) || this.passiveAttempted === device.address) return;
+    if (this.stopped || this.state.busy || this.intentionalDisconnect || this.state.connection !== 'disconnected' || !device || modelForDevice(device).family !== 'bose' || !this.state.devices.some(d => d.address === device.address && d.connected) || this.passiveAttempted === device.address) return;
     this.passiveAttempted = device.address;
     // Adopt an existing OS link even when reconnecting disconnected headphones
     // is disabled. This path may open only the control channel, never baseband

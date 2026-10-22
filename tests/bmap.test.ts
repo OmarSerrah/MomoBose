@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { FrameDecoder, packet, parseEq, parseMultipoint, buildMultipoint, parseModeProfile, resolveModeSlots, Qc45 } from '../electron/bmap';
 import { FakeTransport, modeProfile } from './fake-transport';
 const opened: Qc45[] = [];
@@ -62,6 +62,20 @@ describe('real command sequences through a simulated transport', () => {
   it('collects profiles arriving after the state-dump acknowledgement', async () => {
     const { device } = await setup(t => { t.profileDelayMs = 200; });
     expect(device.modeProfiles).toHaveLength(2); expect(await device.readMode()).toBe(0);
+  });
+  it.each(['first', 'second'])('waits for the delayed %s mode profile beyond the old 500ms cutoff', async delayed => {
+    vi.useFakeTimers();
+    const transport = new FakeTransport();
+    if (delayed === 'first') transport.profileDelayMs = 1000;
+    else transport.profileSpacingMs = 1000;
+    const device = new Qc45(transport);
+    try {
+      const connecting = device.connect('00:00:00:00:00:45', true);
+      await vi.advanceTimersByTimeAsync(2200); await connecting;
+      expect(device.modeProfiles).toHaveLength(2);
+      const changing = device.mode(1); await vi.advanceTimersByTimeAsync(1500); await changing;
+      expect(device.latestMode).toBe(1);
+    } finally { await device.close(); vi.useRealTimers(); }
   });
   it('leaves other settings available but refuses guessed mode writes when profiles are missing', async () => {
     const { transport, device } = await setup(t => { t.modeProfiles = []; });

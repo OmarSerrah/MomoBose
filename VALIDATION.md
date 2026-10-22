@@ -1,3 +1,50 @@
+# MomoBose 0.1.12 Windows startup, QC45 identity, and listening mode fixes
+
+Checked on 2026-10-22 on Apple Silicon macOS. Windows hardware testing remains
+outstanding; these changes have not been confirmed against a live Windows QC45.
+
+- Automatic control attachment now accepts an explicitly recognized QC45 name
+  without requiring a product ID. It still requires an existing OS connection
+  and does not reroute audio or reconnect offline headphones when automatic
+  reconnection is disabled.
+- The Windows helper reads installed BTHENUM device nodes through SetupAPI,
+  joins their cached hardware IDs by ContainerId, and returns vendor/product
+  identity. This allows a renamed QC45 to use its bundled artwork and controls
+  when Windows has cached the device ID. Missing or conflicting IDs are not
+  guessed. Selected device metadata updates on subsequent discovery.
+- Audio endpoints use ContainerId to match the paired headphones, with an
+  unambiguous name fallback. Windows Stereo/Hands-Free suffixes are normalized.
+  Active audio endpoints supplement Bluetooth's cached connection flag; drivers
+  without the KS reconnect property can still expose audio status. Optional
+  audio discovery failures leave the paired device list available. When both
+  audio profiles are active, matching prefers the system's default output.
+- Mode discovery waits up to its existing 2.5-second deadline for a complete
+  Quiet/Aware profile pair. The 500-ms silence window now applies after both
+  profiles arrive. Tests cover a delayed first profile and a delayed second
+  profile, preserving verified slot mapping rather than guessing indices.
+- TypeScript regression coverage exercises Windows startup with no product ID,
+  a later hardware identity update, artwork selection, and a mode write/readback.
+  The .NET regression executable checks identity joins, missing/conflicting IDs,
+  both VID namespaces, endpoint suffixes, duplicate names, and container matching.
+  CI runs these checks on Linux and Windows; the RFCOMM address-layout assertion
+  requires Windows and is skipped locally on macOS.
+
+Local results: all 149 Vitest tests passed; type checking and the production app
+build passed; the .NET identity/endpoint regression executable passed; and the
+self-contained Windows x64 and ARM64 helpers published successfully. These
+cross-builds do not exercise Windows Bluetooth, COM, or SetupAPI at runtime.
+
+Implementation references:
+[Windows Bluetooth hardware IDs](https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/installing-a-bluetooth-device),
+[device ContainerId](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/devpkey-device-containerid),
+and [SetupDiGetDeviceProperty](https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupdigetdevicepropertyw).
+
+To validate on Windows: connect the QC45 before opening MomoBose with automatic
+reconnection disabled; check its artwork, audio status, and battery, then switch
+Quiet/Aware in both directions in the window and tray. Repeat after renaming
+the headphones. Confirm the default output and volume are preserved during
+startup. Also check a pair that connects after launch and an offline saved pair.
+
 # MomoBose 0.1.9 AirPods, automatic connection, and source management
 
 Checked on 2026-10-22 on Apple Silicon macOS.

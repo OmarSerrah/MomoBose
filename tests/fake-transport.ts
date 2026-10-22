@@ -24,6 +24,7 @@ export class FakeTransport extends EventEmitter {
   nativeRequests: { method: string; params: Record<string, any> }[] = [];
   modeProfiles = [modeProfile(0, 1, 0), modeProfile(1, 2, 10)];
   profileDelayMs = 0;
+  profileSpacingMs = 0;
   replyDelayMs = 0;
   beforeReply?: (request: Buffer) => void;
   multipointApplyAfterReads = 0;
@@ -41,8 +42,11 @@ export class FakeTransport extends EventEmitter {
     const [block, fn, op] = request, key = `${block}.${fn}`;
     const payload = request.subarray(4);
     if (key === '31.1' && op === 5) {
-      const profiles = Buffer.concat(this.modeProfiles.map(p => packet(31, 6, 3, p)));
-      const emitProfiles = () => { this.emit('data', profiles.subarray(0, 3).toString('hex')); this.emit('data', profiles.subarray(3).toString('hex')); };
+      const emitFrames = (profiles: Buffer) => { this.emit('data', profiles.subarray(0, 3).toString('hex')); this.emit('data', profiles.subarray(3).toString('hex')); };
+      const emitProfiles = () => {
+        if (!this.profileSpacingMs) emitFrames(Buffer.concat(this.modeProfiles.map(p => packet(31, 6, 3, p))));
+        else this.modeProfiles.forEach((profile, index) => setTimeout(() => emitFrames(packet(31, 6, 3, profile)), index * this.profileSpacingMs));
+      };
       queueMicrotask(() => {
         // Mode STATUS frames can precede the PROCESSING acknowledgement.
         if (!this.profileDelayMs) emitProfiles();

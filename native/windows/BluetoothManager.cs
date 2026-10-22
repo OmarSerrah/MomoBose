@@ -1,5 +1,6 @@
 // Adapted from Jeremy Leff's MIT-licensed BT Audio Tray. See THIRD_PARTY_NOTICES.md.
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace BTAudioTray;
 
@@ -17,7 +18,23 @@ namespace BTAudioTray;
 internal static class BluetoothManager
 {
     /// <summary>A Bluetooth audio device, surfaced via its render audio endpoint.</summary>
-    public record BtDevice(string EndpointId, string Name, bool IsConnected);
+    public record BtDevice(string EndpointId, string Name, bool IsConnected, Guid? ContainerId = null, bool IsDefault = false);
+
+    internal static BtDevice? MatchDevice(string name, Guid? containerId, int sameNameCount, IEnumerable<BtDevice> endpoints)
+    {
+        var devices = endpoints.ToArray();
+        if (containerId.HasValue && containerId != Guid.Empty)
+        {
+            var exact = devices.Where(d => d.ContainerId == containerId).OrderByDescending(d => d.IsConnected).ThenByDescending(d => d.IsDefault).ToArray();
+            if (exact.Length > 0) return exact[0];
+        }
+        // Fallback for drivers without ContainerId. Never match another physical
+        // device with the same name or a known, different hardware identity.
+        if (sameNameCount != 1) return null;
+        var matches = devices.Where(d => d.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+            && (!containerId.HasValue || !d.ContainerId.HasValue || d.ContainerId == containerId)).ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
 
     private static readonly Guid KSPROPSETID_BtAudio = new("7FA06C40-B8F6-4C7E-8556-E8C33A12E54D");
     private const uint KSPROPERTY_ONESHOT_RECONNECT = 0;
@@ -34,6 +51,7 @@ internal static class BluetoothManager
     public static List<BtDevice> GetBluetoothAudioDevices()
     {
         var result = new List<BtDevice>();
+        var defaultId = AudioManager.GetDefaultRenderEndpointId();
         var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         try
         {
@@ -45,11 +63,15 @@ internal static class BluetoothManager
                 collection.Item(i, out var device);
                 try
                 {
-                    if (!IsBluetoothEndpoint(device)) continue;
+                    var containerId = GetContainerId(device);
+                    // Some Windows audio drivers do not expose the optional KS
+                    // reconnect property. The paired Bluetooth container still
+                    // identifies their audio endpoints without touching playback.
+                    if (!DeviceIdentity.IsBluetoothContainer(containerId) && !IsBluetoothEndpoint(device)) continue;
                     device.GetId(out string id);
                     device.GetState(out int state);
                     string name = GetFriendlyName(device);
-                    result.Add(new BtDevice(id, name, state == DEVICE_STATE_ACTIVE));
+                    result.Add(new BtDevice(id, name, state == DEVICE_STATE_ACTIVE, containerId, id == defaultId));
                 }
                 finally { Marshal.ReleaseComObject(device); }
             }
@@ -58,10 +80,10 @@ internal static class BluetoothManager
         finally { Marshal.ReleaseComObject(enumerator); }
 
         // Collapse duplicates: AirPods expose a "Headphones" (A2DP) and a "Headset" (HFP)
-        // endpoint with near-identical names. Prefer the connected one, then the first.
+        // endpoint with near-identical names. Prefer the connected default output.
         return result
-            .GroupBy(d => CleanName(d.Name), StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.OrderByDescending(d => d.IsConnected).First() with { Name = CleanName(g.First().Name) })
+            .GroupBy(d => (Name: CleanName(d.Name).ToUpperInvariant(), d.ContainerId))
+            .Select(g => g.OrderByDescending(d => d.IsConnected).ThenByDescending(d => d.IsDefault).First() with { Name = CleanName(g.First().Name) })
             .OrderBy(d => d.Name)
             .ToList();
     }
@@ -211,17 +233,24 @@ internal static class BluetoothManager
     }
 
     // Strip the role prefix Windows adds: "Headphones (X)" / "Headset (X)" -> "X".
-    private static string CleanName(string friendlyName)
+    internal static string CleanName(string friendlyName)
     {
-        int open = friendlyName.IndexOf('(');
-        int close = friendlyName.LastIndexOf(')');
-        string inner = (open >= 0 && close > open)
-            ? friendlyName.Substring(open + 1, close - open - 1)
-            : friendlyName;
-        // Drop trailing " - Find My" and similar Apple suffixes for display.
-        int dash = inner.IndexOf(" - ", StringComparison.Ordinal);
-        if (dash > 0) inner = inner.Substring(0, dash);
-        return inner.Trim();
+        var role = Regex.Match(friendlyName, @"^(?:Headphones|Headset|Speakers)\s*\((.*)\)$", RegexOptions.IgnoreCase);
+        var inner = role.Success ? role.Groups[1].Value : friendlyName;
+        return Regex.Replace(inner, @"(?:\s+Stereo|\s+Hands-Free(?: AG Audio)?| - Find My)$", "", RegexOptions.IgnoreCase).Trim();
+    }
+
+    private static Guid? GetContainerId(IMMDevice device)
+    {
+        if (device.OpenPropertyStore(STGM_READ, out var store) < 0) return null;
+        try
+        {
+            var key = new PROPERTYKEY { fmtid = new("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c"), pid = 2 };
+            if (store.GetValue(ref key, out var value) < 0) return null;
+            try { return value.vt == 72 /* VT_CLSID */ && value.pwszVal != IntPtr.Zero ? Marshal.PtrToStructure<Guid>(value.pwszVal) : null; }
+            finally { PropVariantClear(ref value); }
+        }
+        finally { Marshal.ReleaseComObject(store); }
     }
 
     private static string GetFriendlyName(IMMDevice device)

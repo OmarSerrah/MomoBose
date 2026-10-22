@@ -247,12 +247,21 @@ export class Qc45 extends EventEmitter {
     let conflictingProfiles = false;
     let quietTimer: NodeJS.Timeout | undefined;
     let finish: (() => void) | undefined;
+    const waitForSilence = () => {
+      clearTimeout(quietTimer);
+      // Windows can deliver the first profile, or the rest of the dump, well
+      // after the START acknowledgement. Silence ends discovery only once both
+      // presets are present; incomplete dumps get the full bounded deadline.
+      try { resolveModeSlots([...profiles.values()].map(parseModeProfile)); }
+      catch { return; }
+      quietTimer = setTimeout(() => finish?.(), 500);
+    };
     const collect = (frame: Frame) => {
       if (frame.block !== 31 || frame.fn !== 6 || frame.op !== 3 || !frame.payload.length) return;
       const previous = profiles.get(frame.payload[0]);
       if (previous && !previous.equals(frame.payload)) conflictingProfiles = true;
       profiles.set(frame.payload[0], Buffer.from(frame.payload));
-      if (quietTimer) { clearTimeout(quietTimer); quietTimer = setTimeout(() => finish?.(), 500); }
+      if (finish) waitForSilence();
     };
     this.on('frame', collect);
     let deadline: NodeJS.Timeout | undefined;
@@ -262,8 +271,8 @@ export class Qc45 extends EventEmitter {
       await this.exchange(31, 1, 5);
       await new Promise<void>(resolve => {
         finish = resolve;
-        quietTimer = setTimeout(resolve, 500);
         deadline = setTimeout(resolve, 2500);
+        waitForSilence();
       });
       if (!this.active) throw new Error('Headphones disconnected while reading mode profiles.');
       if (conflictingProfiles) throw new Error('Headphone profiles changed during discovery. Reconnect and retry.');

@@ -6,5 +6,7 @@ release-*/
 native/bin/
 native/windows/bin/
 native/windows/obj/
+tests/windows/bin/
+tests/windows/obj/
 .DS_Store
 *.log
