@@ -30,7 +30,7 @@ function updateApplicationIcon() {
   const icon = nativeImage.createFromPath(applicationIconPath());
   if (icon.isEmpty()) return;
   if (process.platform === 'darwin') app.dock?.setIcon(icon);
-  else for (const window of windows()) window.setIcon(icon);
+  else for (const window of windows()) if (typeof window.setIcon === 'function') window.setIcon(icon);
   iconAppearance = appearance;
 }
 function savePreferences(value: Preferences) {

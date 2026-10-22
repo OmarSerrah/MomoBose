@@ -1,7 +1,7 @@
 {
   "name": "momobose",
   "productName": "MomoBose",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "description": "A quieter way to connect. Bose QC45 controls for your desktop.",

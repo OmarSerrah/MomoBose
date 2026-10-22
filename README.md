@@ -1,7 +1,7 @@
 # MomoBose
 
 [![Build](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml/badge.svg)](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml)
-[![Version](https://img.shields.io/badge/version-0.1.10-blue)](package.json)
+[![Version](https://img.shields.io/badge/version-0.1.11-blue)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 MomoBose is a desktop companion for Bose QuietComfort 45 headphones and Apple AirPods. It provides quick controls from the macOS menu bar or Windows system tray, plus a full desktop window. The app runs locally and stores preferences on your computer.
