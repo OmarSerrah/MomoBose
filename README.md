@@ -1,5 +1,6 @@
 # MomoBose
 
+[![Build](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml/badge.svg)](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml)
 [![Version](https://img.shields.io/badge/version-0.1.10-blue)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -28,7 +29,7 @@ AirPods ANC, Adaptive Audio, Spatial Audio, Find My, and Apple account switching
 
 ### Install a release
 
-Download the installer or archive for your operating system from the project's Releases page. Pair your headphones in macOS Bluetooth settings or Windows Bluetooth settings before opening MomoBose. MomoBose does not perform initial Bluetooth pairing.
+Download the installer or archive for your operating system from [GitHub Releases](https://github.com/OmarSerrah/MomoBose/releases). Pair your headphones in macOS Bluetooth settings or Windows Bluetooth settings before opening MomoBose. MomoBose does not perform initial Bluetooth pairing.
 
 ### Run from source
 
@@ -39,7 +40,7 @@ Requirements:
 - A paired Bose QC45 or supported AirPods for hardware use. The demo runs without Bluetooth hardware.
 
 ```sh
-git clone <repository-url>
+git clone https://github.com/OmarSerrah/MomoBose.git
 cd MomoBose
 npm ci
 npm run build:native
@@ -73,7 +74,7 @@ npm run dist:win   # run on Windows; installer and ZIP
 
 - Check [VALIDATION.md](VALIDATION.md) for platform checks, known limitations, and hardware validation status.
 - Check [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for artwork and dependency notices.
-- For bugs or setup questions, open an issue in the repository's Issues page and include your OS version, app version, and the steps to reproduce. Do not include Bluetooth addresses or other private device information.
+- For bugs or setup questions, open a [GitHub issue](https://github.com/OmarSerrah/MomoBose/issues) and include your OS version, app version, and the steps to reproduce. Do not include Bluetooth addresses or other private device information.
 
 ## Contributing and maintenance
 
