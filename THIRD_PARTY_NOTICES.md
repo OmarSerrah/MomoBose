@@ -68,3 +68,17 @@ QC45 model; the Bluetooth API does not report the headset's physical color.
 that photograph, prepared with the built-in image editing tool. The original
 JPEG is retained for provenance. See `docs/artwork.md` for the exact edit prompt
 and output details.
+
+## Apple AirPods product photographs
+
+`src/assets/airpods/*.png` contains transparent product photographs retrieved
+from Apple's website and Apple Store image CDN on 2026-10-22. Exact source
+URLs and bundled pixel dimensions are recorded in
+`src/assets/airpods/sources.json`. Only transparent outer padding was removed;
+the product pixels were not enlarged or synthesized.
+
+Apple product imagery and the Apple and AirPods trademarks belong to Apple Inc.
+and are not covered by this project's MIT license. MomoBose is independent and
+unofficial. The images identify the product model, not the physical color of a
+particular device. AirPods 1/2, charging-case/port variants, and AirPods Max USB-C
+and Max 2 share artwork where their exterior design is the same.

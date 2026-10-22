@@ -168,6 +168,7 @@ it.each(['desktop', 'widget'])('shows AirPods battery and system settings withou
   const { default: App } = await import('../src/App'); render(<App/>);
   await screen.findByRole('heading', { name: 'Momo’s AirPods' });
   expect(screen.getAllByText('AirPods Pro 2 (USB-C)').length).toBeGreaterThan(0);
+  expect((screen.getByRole('img', { name: 'AirPods Pro 2 (USB-C)' }) as HTMLImageElement).src).toContain('/airpods/airpods-pro-2.png');
   expect(screen.queryByRole('group', { name: 'Listening mode' })).toBeNull();
   expect(screen.queryByRole('switch', { name: 'Multipoint' })).toBeNull();
   expect(screen.queryByRole('slider', { name: 'Bass' })).toBeNull();

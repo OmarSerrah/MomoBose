@@ -1,0 +1,60 @@
+{
+  "retrieved": "2026-10-22",
+  "processing": "Removed transparent outer padding losslessly; no enlargement, recoloring, or background synthesis.",
+  "images": [
+    {
+      "file": "airpods-1-2.png",
+      "source": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MMEF2?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 566,
+      "height": 1070
+    },
+    {
+      "file": "airpods-3.png",
+      "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MME73?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 728,
+      "height": 998
+    },
+    {
+      "file": "airpods-4.png",
+      "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MXP63?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 554,
+      "height": 587
+    },
+    {
+      "file": "airpods-5.png",
+      "source": "https://www.apple.com/v/airpods/compare/k/images/overview/airpods_5gen_white__dn7wechaouwm_large_2x.png",
+      "width": 406,
+      "height": 430
+    },
+    {
+      "file": "airpods-pro-1.png",
+      "source": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MWP22?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 730,
+      "height": 936
+    },
+    {
+      "file": "airpods-pro-2.png",
+      "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MTJV3?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 720,
+      "height": 886
+    },
+    {
+      "file": "airpods-pro-3.png",
+      "source": "https://www.apple.com/v/airpods/compare/k/images/overview/airpods_pro_3_white__doiqzzyvwxyu_large_2x.png",
+      "width": 500,
+      "height": 434
+    },
+    {
+      "file": "airpods-max-lightning.png",
+      "source": "https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/MGYJ3?wid=1144&hei=1144&fmt=png-alpha",
+      "width": 653,
+      "height": 722
+    },
+    {
+      "file": "airpods-max-usbc.png",
+      "source": "https://www.apple.com/v/airpods/compare/k/images/overview/airpods_max_midnight__gbjhmammlc2m_large_2x.png",
+      "width": 606,
+      "height": 670
+    }
+  ]
+}
