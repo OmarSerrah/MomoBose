@@ -13,6 +13,8 @@ const single = app.requestSingleInstanceLock();
 if (!single) app.quit();
 let main: BrowserWindow | null = null, widget: BrowserWindow | null = null, tray: Tray;
 let quitting = false;
+let dockHideTimer: ReturnType<typeof setTimeout> | undefined;
+let lastDockChange = -Infinity;
 let controller: Controller | undefined;
 let bridge: NativeBridge | undefined;
 let current: AppState;
@@ -102,12 +104,33 @@ function createWindow(compact = false) {
   const query = { ...(compact ? { widget: '1' } : {}), ...(demo ? { demo: '1' } : {}) };
   if (devURL) { const url = new URL(devURL); Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v)); void window.loadURL(url.toString()); }
   else void window.loadFile(path.join(root, 'dist/index.html'), { query });
-  window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
+  window.on('close', event => {
+    if (!quitting) {
+      event.preventDefault(); window.hide();
+      if (!compact) hideDock();
+    }
+  });
   if (compact) window.on('blur', () => { if (!process.argv.includes('--keep-widget-open')) window.hide(); });
   return window;
 }
+function hideDock() {
+  if (process.platform !== 'darwin' || quitting || main?.isVisible()) return;
+  clearTimeout(dockHideTimer);
+  // Electron ignores dock.hide() for one second after dock.show().
+  const delay = 1100 - (Date.now() - lastDockChange);
+  if (delay > 0) { dockHideTimer = setTimeout(hideDock, delay); return; }
+  app.dock?.hide();
+  lastDockChange = Date.now();
+}
 function showMain() {
+  if (quitting) return;
+  clearTimeout(dockHideTimer);
+  if (process.platform === 'darwin' && app.dock && !app.dock.isVisible()) {
+    lastDockChange = Date.now();
+    void app.dock.show();
+  }
   if (!main || main.isDestroyed()) main = createWindow();
+  if (main.isMinimized()) main.restore();
   main.show(); main.focus();
 }
 function toggleWidget() {
@@ -154,6 +177,7 @@ app.on('activate', showMain);
 app.on('window-all-closed', () => { /* Keep the menu bar / tray control running. */ });
 app.on('before-quit', () => {
   quitting = true;
+  clearTimeout(dockHideTimer);
   nativeTheme.off('updated', updateApplicationIcon);
   controller?.off('state', update);
   controller?.stop(); bridge?.stop();
@@ -176,11 +200,12 @@ if (single) void app.whenReady().then(async () => {
   nativeTheme.on('updated', updateApplicationIcon);
   nativeTheme.themeSource = current.preferences.appearance;
   main = createWindow();
-  main.once('ready-to-show', () => { if (!process.argv.includes('--hidden')) main!.show(); });
+  if (process.argv.includes('--hidden')) hideDock();
+  main.once('ready-to-show', () => { if (!process.argv.includes('--hidden')) showMain(); });
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ label: 'MomoBose', submenu: [{ role: 'about' as const }, { type: 'separator' as const }, { role: 'hide' as const }, { role: 'hideOthers' as const }, { type: 'separator' as const }, { label: 'Quit MomoBose', accelerator: 'Cmd+Q', click: () => { quitting = true; app.quit(); } }] }] : []),
     { label: 'Edit', submenu: [{ role: 'copy' }, { role: 'selectAll' }] },
-    { label: 'Window', submenu: [{ label: 'Show MomoBose', click: showMain }, { role: 'minimize' }] },
+    { label: 'Window', submenu: [{ label: 'Show MomoBose', click: showMain }, { role: 'minimize' }, { id: 'close-window', role: 'close', accelerator: 'CmdOrCtrl+W' }] },
   ]));
   powerMonitor.on('suspend', () => { void controller?.suspend(); }); powerMonitor.on('resume', () => controller?.resume());
   update(current);
@@ -223,9 +248,12 @@ if (single) void app.whenReady().then(async () => {
     report.widget = await widget!.webContents.executeJavaScript('({ text: document.body.innerText, compact: document.querySelector(".widget") !== null, width: innerWidth, noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth })');
     writeFileSync(path.join(output, 'widget.png'), (await widget!.webContents.capturePage()).toPNG());
     main!.close();
-    report.closeToTray = { windowHidden: !main!.isVisible(), windowRetained: !main!.isDestroyed(), trayAlive: !tray.isDestroyed() };
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    report.closeToTray = { windowHidden: !main!.isVisible(), windowRetained: !main!.isDestroyed(), trayAlive: !tray.isDestroyed(), dockHidden: process.platform === 'darwin' ? !app.dock!.isVisible() : null };
     showMain();
+    await new Promise(resolve => setTimeout(resolve, 100));
     report.reopened = main!.isVisible();
+    report.dockRestored = process.platform === 'darwin' ? app.dock!.isVisible() : null;
     writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
     quitting = true; app.quit();
   }
