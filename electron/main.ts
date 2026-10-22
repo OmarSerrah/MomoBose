@@ -5,16 +5,17 @@ import { Controller } from './controller';
 import { Qc45 } from './bmap';
 import { NativeBridge } from './native';
 import { UpdateManager } from './updates';
+import { SparkleUpdateManager } from './sparkle-updates';
 import { createDemoAPI } from '../src/shared/demo';
 import { modelForDevice } from '../src/shared/models';
-import { ListeningMode, defaultPreferences, type AppState, type Command, type Preferences } from '../src/shared/types';
+import { ListeningMode, defaultPreferences, type AppState, type Command, type Preferences, type UpdateState } from '../src/shared/types';
 
 app.setName('MomoBose');
 const single = app.requestSingleInstanceLock();
 if (!single) app.quit();
 let main: BrowserWindow | null = null, widget: BrowserWindow | null = null, tray: Tray;
 let quitting = false;
-let updates: UpdateManager | undefined;
+let updates: UpdateManager | SparkleUpdateManager | undefined;
 let dockHideTimer: ReturnType<typeof setTimeout> | undefined;
 let lastDockChange = -Infinity;
 let controller: Controller | undefined;
@@ -168,11 +169,14 @@ function contextMenu() {
 function updateMenuItem(): Electron.MenuItemConstructorOptions {
   const state = updates?.state;
   return {
-    label: state?.status === 'downloaded' ? 'Restart to Update…' : state?.status === 'available' ? 'Download Update…' : state?.status === 'downloading' ? `Downloading Update… ${state.percent ?? 0}%` : state?.status === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
+    label: state?.mode === 'sparkle'
+      ? state.status === 'checking' ? 'Checking for Updates…' : 'Check for Updates…'
+      : state?.status === 'downloaded' ? 'Restart to Update…' : state?.status === 'available' ? 'Download Update…' : state?.status === 'downloading' ? `Downloading Update… ${state.percent ?? 0}%` : state?.status === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
     enabled: Boolean(state && state.mode !== 'disabled' && !['checking', 'downloading'].includes(state.status)),
     click: () => {
       showMain();
-      if (updates?.state.status === 'downloaded') {
+      if (updates?.state.mode === 'sparkle') void updates.check();
+      else if (updates?.state.status === 'downloaded') {
         try { updates.install(); } catch { /* The updater publishes the failure to the window. */ }
       }
       else if (updates?.state.status === 'available') void updates.openRelease().catch(() => {});
@@ -227,20 +231,26 @@ if (single) void app.whenReady().then(async () => {
   ipcMain.handle('momobose:snapshot', event => { allowedSender(event); return current; });
   ipcMain.handle('momobose:command', (event, action) => { allowedSender(event); return command(action); });
   // Do not contact GitHub during development, demo sessions, or smoke tests.
-  const updater = app.isPackaged && !demo && !process.argv.includes('--smoke-test') && ['win32', 'darwin'].includes(process.platform)
-    ? (await import('electron-updater')).default.autoUpdater : null;
-  updates = new UpdateManager(updater, {
+  const updateOptions = {
     platform: process.platform, arch: process.arch,
     installed: process.platform === 'win32' && existsSync(path.join(path.dirname(app.getPath('exe')), 'Uninstall MomoBose.exe')),
-    publish: state => {
+    publish: (state: UpdateState) => {
       if (quitting) return;
       for (const window of windows()) if (!window.webContents.isDestroyed()) window.webContents.send('momobose:updates:state', state);
       refreshApplicationMenu();
     },
     beforeInstall: () => { quitting = true; clearTimeout(dockHideTimer); },
     installFailed: () => { quitting = false; showMain(); },
-    openRelease: url => shell.openExternal(url),
-  });
+    openRelease: (url: string) => shell.openExternal(url),
+  };
+  if (app.isPackaged && !demo && !process.argv.includes('--smoke-test') && process.platform === 'darwin') {
+    const sparkle = await import('electron-sparkle');
+    updates = new SparkleUpdateManager(sparkle.updater, updateOptions);
+  } else {
+    const updater = app.isPackaged && !demo && !process.argv.includes('--smoke-test') && process.platform === 'win32'
+      ? (await import('electron-updater')).default.autoUpdater : null;
+    updates = new UpdateManager(updater, updateOptions);
+  }
   ipcMain.handle('momobose:updates:snapshot', event => { allowedSender(event); return updates!.state; });
   ipcMain.handle('momobose:updates:check', event => { allowedSender(event); void updates!.check(); });
   ipcMain.handle('momobose:updates:install', event => { allowedSender(event); updates!.install(); });
@@ -251,7 +261,7 @@ if (single) void app.whenReady().then(async () => {
   if (process.argv.includes('--hidden')) hideDock();
   main.once('ready-to-show', () => { if (!process.argv.includes('--hidden')) showMain(); });
   refreshApplicationMenu();
-  updates.start();
+  void updates.start();
   powerMonitor.on('suspend', () => { void controller?.suspend(); }); powerMonitor.on('resume', () => controller?.resume());
   update(current);
   // Smoke checks must not inherit a user's automatic reconnect preference.

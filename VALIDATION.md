@@ -1,4 +1,97 @@
-# MomoBose 0.1.13 app updates
+# MomoBose 0.1.14 — Sparkle two-version upgrade validation
+
+Checked on 2026-10-22 using disposable copies of the packaged application on an
+Apple silicon Mac. The real updater, renderer IPC, native Sparkle framework,
+installation and app lifecycle were exercised with free ad-hoc signatures and
+Hardened Runtime. Test versions 0.1.13 and 0.1.14 are fixture versions only.
+
+- **Native ARM UI:** the maintainer accepted Sparkle's Install Update and Install
+  and Relaunch buttons. The installed test bundle was replaced, version 0.1.14
+  opened, dark appearance and tray-battery preferences were retained, and the
+  old app and helper processes exited. A repeat native check reported no update.
+- **Intel build under Rosetta:** the official Sparkle CLI downloaded, verified,
+  installed and relaunched the x64 test app at 0.1.14. Preferences were retained,
+  old app/helper processes exited, and a subsequent CLI probe reported no update.
+- **Rejection/fallback:** the native background updater rejected a modified
+  signed feed and an HTTP 503 response. The official installer rejected a
+  same-length corrupted ZIP with Sparkle error 4005 before replacement. In each
+  case the old app remained usable with its preferences and manual-release
+  fallback. Interactive error dialogs require dismissal; unattended error tests
+  use background checks and CLI probes instead.
+- **Remote CI:** [workflow run 39830496430](https://github.com/OmarSerrah/MomoBose/actions/runs/39830496430)
+  passed tests, production builds, .NET checks, and packaging for macOS arm64/x64
+  and Windows arm64/x64. It ran source snapshot
+  `bd741ab5307c4a3355be8c2e0d0956d61688489c` on
+  `test/sparkle-upgrade-validation-20261022`. The production updater, packaging,
+  dependency and workflow files in this checkout match that snapshot. No tag,
+  release or PR was created; signing and publishing jobs were skipped.
+
+Five successful case reports and event logs are saved locally under
+`release/upgrade-validation/`, indexed by `manifest.json`. A final independent
+review found no concrete false-success condition in those passes. Expected
+renderer teardown during quit is excluded from future fixture error logs.
+
+The fixture adds an observation entrypoint, unique bundle ID, isolated profile,
+disposable Ed25519 key and local feed. Its Bluetooth child process returns an
+empty device list to avoid interacting with headphones; this does not validate
+Bluetooth reconnection after updating. Manual fallback URLs are logged without
+opening a browser. The regular installation and user preferences are untouched.
+Actual Intel hardware, Windows installer upgrades, fresh Gatekeeper/quarantine
+prompts and the protected tag signing/publishing jobs remain unverified. The
+Rosetta check is not a physical Intel check. Existing users must manually install
+their first Sparkle-enabled release. Reproduction steps are in
+[the updater guide](docs/updates.md#run-isolated-macos-upgrade-checks).
+
+# MomoBose 0.1.14 — Sparkle security fixes
+
+Checked on 2026-10-22 on Apple silicon macOS. These changes retain free ad-hoc
+signing and require no Apple Developer certificate or notarization.
+
+- All 215 Vitest tests pass, along with type checking and the production build.
+  The feed tests use real Ed25519 keys and cover modified signed bytes, same-size
+  archive tampering, wrong keys, malformed XML, duplicate attributes, namespace
+  substitutions, exact URLs/versions/lengths, hardware metadata and item ordering.
+  Mac-only tests run the official signer with a disposable key over stdin.
+- `npm audit` reports zero vulnerabilities. All 396 audited packages have
+  verified registry signatures; 97 have verified attestations. The exact
+  `electron-sparkle` version and its upstream Sparkle archive provenance were
+  checked; `global-agent` 4.1.3 replaces its vulnerable older dependency chain.
+- Both Intel and ARM Mac apps passed strict deep `codesign` verification and
+  Sparkle's doctor check. Both architectures produced DMG/ZIP archives using
+  ad-hoc signatures with Hardened Runtime enabled. Packaging checks executable,
+  helper and bridge architecture; bundle versions; and embedded feed/key flags.
+  Signing and archiving outside Desktop resolves the Finder metadata failure.
+  Both release ZIPs also passed strict signature verification after extraction.
+- The actual electron-builder ZIPs were signed locally using the existing
+  Keychain key. Their appcast and archive signatures verify against the public
+  key embedded in MomoBose. The appcast also passed the official Sparkle
+  `sign_update --verify` check. No release was published. `generate_appcast`
+  rejected equal-version architecture archives, so the release script now uses
+  Sparkle's documented manual appcast and `sign_update` flow, ARM item first.
+- Disposable Electron app fixtures with separate bundle identifiers initialized
+  the native Sparkle bridge on ARM and x64 under Rosetta. These fixtures used
+  isolated local feeds and disabled automatic checks; they did not change the
+  installed MomoBose app or preferences. The ARM native updater accepted the
+  signed feed, selected the ARM ZIP, and rejected a modified feed. The x64
+  updater under Rosetta also accepted the valid feed, selected native ARM
+  for this Apple silicon Mac, and rejected the modified feed. Its first feed-check launch exceeded the initial
+  30-second fixture timeout; a follow-up check completed successfully.
+- GitHub API checks confirmed the protected `release` environment, required
+  owner approval, tag-only deployment policy and environment-scoped signing key.
+  Its repository-scoped secret copy was removed. Active rulesets make `v*` tags
+  immutable and restrict their creation to administrators. Actions are pinned,
+  signing and publication are separate, and only publication has contents write.
+- Independent delegated reviews found no remaining concrete security issue in
+  the revised signing, packaging, runtime and release workflow code.
+
+Two-version upgrade and remote workflow results are recorded above. macOS
+approval prompts remain possible for ad-hoc builds; existing users must install
+the first Sparkle-enabled release manually. See
+[the hardware checklist](docs/updates.md) and [release security](docs/security-release.md).
+
+The following sections record earlier validation snapshots.
+
+# MomoBose 0.1.13 app updates (before Sparkle)
 
 Checked on 2026-10-22 on Apple Silicon macOS.
 
@@ -415,7 +508,7 @@ The Windows helper compiles, but Windows Bluetooth/audio behavior and the Window
 
 ## Development distribution
 
-The Mac artifact is locally ad-hoc signed and not notarized. Windows artifacts are unsigned development builds. Public distribution requires developer signing credentials and platform testing. The cross-built Windows executable keeps Electron's embedded executable metadata/icon; the app window, tray and installer use MomoBose branding. Building on Windows normally enables executable resource editing.
+The Mac artifact is locally ad-hoc signed and not notarized. Windows artifacts are unsigned development builds. Platform testing remains required before claiming installation and self-updates verified on hardware; paid Apple signing is optional for this release approach. The cross-built Windows executable keeps Electron's embedded executable metadata/icon; the app window, tray and installer use MomoBose branding. Building on Windows normally enables executable resource editing.
 
 After moving the project under Desktop, File Provider attached FinderInfo metadata to generated Mach-O files and prevented signing, including after an attribute-cleanup hook. Version 0.1.4 is staged outside Desktop; its installer archives stay in the project. The unpacked signed Mac build is referenced from outside File Provider storage.
 

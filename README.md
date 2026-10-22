@@ -1,7 +1,7 @@
 # MomoBose
 
 [![Build](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml/badge.svg)](https://github.com/OmarSerrah/MomoBose/actions/workflows/build.yml)
-[![Version](https://img.shields.io/badge/version-0.1.13-blue)](package.json)
+[![Version](https://img.shields.io/badge/version-0.1.14-blue)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 MomoBose is a desktop companion for Bose QuietComfort 45, Sony WH-1000XM4/WH-1000XM5, and Apple AirPods. It provides quick controls from the macOS menu bar or Windows system tray, plus a full desktop window. The app runs locally and stores preferences on your computer.
@@ -52,15 +52,18 @@ tray menu, or **Preferences → App updates**.
 - **Windows installer:** updates download in the background. Choose **Restart to
   Update** when ready; the installer replaces MomoBose and reopens it. Closing
   the window or quitting normally does not install an update.
-- **macOS and Windows ZIP:** when a newer release is available, choose **Download
-  Update** to open its download page, then install it manually. macOS releases
-  currently use ad-hoc signing; automatic replacement requires Developer ID
-  signing and is not enabled.
+- **macOS:** Sparkle checks for updates and presents its native download and
+  install flow. **Download Manually** remains available from GitHub Releases.
+  App bundles remain ad-hoc signed, so macOS may show approval prompts and the
+  first Sparkle-enabled release must be installed manually by existing users.
+- **Windows ZIP:** when a newer release is available, choose **Download Update**
+  to open its download page, then install it manually.
 
 Preferences stay on your computer across updates. Update checks contact GitHub
 for public release metadata and do not send headphone details. Development,
-demo, and smoke-test sessions do not check for updates. Users of 0.1.12 and older
-must install an updater-enabled release manually first.
+demo, and smoke-test sessions do not check for updates. macOS users on 0.1.13 or
+older must install 0.1.14 manually to enable Sparkle. Windows users on 0.1.12 or
+older must install an updater-enabled release manually first.
 
 See [release and updater maintenance](docs/updates.md) for the release process
 and the two-version validation checklist.
