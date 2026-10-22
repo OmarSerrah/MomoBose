@@ -1,4 +1,4 @@
-// Optional local integration-test tooling; never invoked by release signing.
+// Run from the repository root. Test tooling is never invoked by release signing.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';

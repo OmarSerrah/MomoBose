@@ -110,9 +110,18 @@ npm run dist:win   # run on Windows; installer and ZIP
 
 ## Help and documentation
 
-- Check [VALIDATION.md](VALIDATION.md) for platform checks, known limitations, and hardware validation status.
+- Check [release and updater maintenance](docs/updates.md) for validation results, release security, and upgrade checks.
 - Check [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for artwork and dependency notices.
 - For bugs or setup questions, open a [GitHub issue](https://github.com/OmarSerrah/MomoBose/issues) and include your OS version, app version, and the steps to reproduce. Do not include Bluetooth addresses or other private device information.
+
+### Hardware validation
+
+QC45 read-only checks passed on macOS. Setting writes, source changes, reconnect,
+audio routing, physical-button synchronization, and sleep/wake still need hardware
+checks. Sony and AirPods behavior, Windows Bluetooth/audio, and Windows installer
+upgrades remain unverified on physical hardware. Automated tests and the simulated
+screenshots do not establish headset compatibility. See [Sony's checklist](docs/sony.md#hardware-validation-still-required)
+and [the upgrade checklist](docs/updates.md#validate-two-packaged-versions).
 
 ## Contributing and maintenance
 
@@ -130,4 +139,4 @@ MomoBose is maintained by **Momo**. Contributions are welcome. Before opening a 
 
 4. Describe the change, platforms affected, and any hardware validation performed. Automated protocol tests do not confirm behavior on a physical headset; state clearly when hardware checks have not been done.
 
-The project uses the [MIT License](LICENSE). See [docs/artwork.md](docs/artwork.md) for asset guidance.
+The project uses the [MIT License](LICENSE). Product photographs retain their owners' rights; see [third-party notices](THIRD_PARTY_NOTICES.md). To regenerate app icons from the bundled light/dark masters, run `node scripts/generate-icons.mjs` on macOS.

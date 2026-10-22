@@ -1,4 +1,4 @@
-// Opt-in integration check. Only disposable, uniquely identified app copies are
+// Run from the repository root. Only disposable, uniquely identified app copies are
 // modified. A disposable Ed25519 key and a loopback feed replace production
 // update infrastructure. Bluetooth is a child-process fixture; updater/UI code
 // and the native Sparkle installer run from the packaged application.

@@ -83,9 +83,10 @@ not covered by this project's MIT license. The bundled photograph identifies the
 QC45 model; the Bluetooth API does not report the headset's physical color.
 
 `src/assets/bose-qc45-black-cutout.png` is a transparent-background derivative of
-that photograph, prepared with the built-in image editing tool. The original
-JPEG is retained for provenance. See `docs/artwork.md` for the exact edit prompt
-and output details.
+that photograph, prepared with the built-in image editing tool as a 640 × 640
+RGBA PNG. Only the white background, including inside the headband, was removed;
+the product shape, materials, lighting and logo were preserved. The original JPEG
+is retained for provenance.
 
 ## Apple AirPods product photographs
 
@@ -93,7 +94,8 @@ and output details.
 from Apple's website and Apple Store image CDN on 2026-10-22. Exact source
 URLs and bundled pixel dimensions are recorded in
 `src/assets/airpods/sources.json`. Only transparent outer padding was removed;
-the product pixels were not enlarged or synthesized.
+the product pixels were not enlarged or synthesized. Padding was removed with
+Sharp's `trim({ threshold: 0 })` and lossless PNG compression; alpha is preserved.
 
 Apple product imagery and the Apple and AirPods trademarks belong to Apple Inc.
 and are not covered by this project's MIT license. MomoBose is independent and
