@@ -23,7 +23,7 @@ AirPods ANC, Adaptive Audio, Spatial Audio, Find My, and Apple account switching
 
 | Desktop window | Menu bar / system tray widget |
 | --- | --- |
-| ![MomoBose desktop window](docs/screenshots/desktop-redesign.png) | ![MomoBose compact widget](docs/screenshots/widget-redesign.png) |
+| ![MomoBose Bose QC45 desktop controls](docs/screenshots/volume-light-main.png) | ![MomoBose Bose QC45 compact widget](docs/screenshots/volume-light-widget.png) |
 
 ## Get started
 
